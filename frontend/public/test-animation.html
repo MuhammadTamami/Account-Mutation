@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Animated Background</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* ===== ANIMATED 3D BACKGROUND ===== */
+    .animated-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    /* Grid Lines Animation */
+    .grid-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(180, 255, 0, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(180, 255, 0, 0.05) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: grid-move 20s linear infinite;
+    }
+
+    @keyframes grid-move {
+      0% {
+        transform: translate(0, 0);
+      }
+      100% {
+        transform: translate(50px, 50px);
+      }
+    }
+
+    /* Floating Documents */
+    .floating-doc {
+      position: absolute;
+      opacity: 0.08;
+      animation: float-diagonal 25s infinite ease-in-out;
+      filter: blur(0.5px);
+      font-size: 8rem;
+    }
+
+    .floating-doc:nth-child(2) {
+      top: 10%;
+      left: 5%;
+      animation-delay: 0s;
+      animation-duration: 30s;
+    }
+
+    .floating-doc:nth-child(3) {
+      top: 60%;
+      left: 80%;
+      font-size: 6rem;
+      animation-delay: -5s;
+      animation-duration: 35s;
+    }
+
+    .floating-doc:nth-child(4) {
+      top: 30%;
+      left: 70%;
+      font-size: 7rem;
+      animation-delay: -10s;
+      animation-duration: 28s;
+    }
+
+    .floating-doc:nth-child(5) {
+      top: 70%;
+      left: 15%;
+      font-size: 5rem;
+      animation-delay: -15s;
+      animation-duration: 32s;
+    }
+
+    @keyframes float-diagonal {
+      0%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+      }
+      25% {
+        transform: translate(30px, -40px) rotate(5deg) scale(1.1);
+      }
+      50% {
+        transform: translate(-20px, -80px) rotate(-3deg) scale(0.9);
+      }
+      75% {
+        transform: translate(-40px, -40px) rotate(4deg) scale(1.05);
+      }
+    }
+
+    /* Glowing Particles */
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #b4ff00;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #b4ff00, 0 0 30px #b4ff00;
+      animation: particle-float 15s infinite ease-in-out;
+      opacity: 0.7;
+    }
+
+    .particle:nth-child(6) {
+      top: 20%;
+      left: 20%;
+      animation-delay: 0s;
+      animation-duration: 12s;
+    }
+
+    .particle:nth-child(7) {
+      top: 50%;
+      left: 50%;
+      animation-delay: -3s;
+      animation-duration: 15s;
+    }
+
+    .particle:nth-child(8) {
+      top: 70%;
+      left: 30%;
+      animation-delay: -6s;
+      animation-duration: 18s;
+    }
+
+    @keyframes particle-float {
+      0%, 100% {
+        transform: translate(0, 0);
+        opacity: 0.7;
+      }
+      25% {
+        transform: translate(100px, -50px);
+        opacity: 0.9;
+      }
+      50% {
+        transform: translate(50px, -100px);
+        opacity: 0.5;
+      }
+      75% {
+        transform: translate(-50px, -150px);
+        opacity: 0.8;
+      }
+    }
+
+    /* Content */
+    .content {
+      position: relative;
+      z-index: 1;
+      padding: 100px 50px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 4rem;
+      color: #b4ff00;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 30px;
+    }
+
+    p {
+      font-size: 1.5rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: rgba(20, 20, 20, 0.5);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(180, 255, 0, 0.3);
+      padding: 50px;
+      margin: 50px auto;
+      max-width: 600px;
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(180, 255, 0, 0.15),
+        0 0 20px rgba(180, 255, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(180, 255, 0, 0.7);
+      background: rgba(20, 20, 20, 0.7);
+      box-shadow: 
+        0 16px 48px rgba(180, 255, 0, 0.3),
+        inset 0 1px 0 rgba(180, 255, 0, 0.25),
+        0 0 40px rgba(180, 255, 0, 0.15);
+      transform: translateY(-5px);
+    }
+
+    .status {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(180, 255, 0, 0.1);
+      border: 1px solid rgba(180, 255, 0, 0.3);
+      padding: 15px 25px;
+      border-radius: 5px;
+      color: #b4ff00;
+      font-size: 0.9rem;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated 3D Background -->
+  <div class="animated-background">
+    <!-- Grid Lines -->
+    <div class="grid-lines"></div>
+    
+    <!-- Floating Documents -->
+    <div class="floating-doc">📄</div>
+    <div class="floating-doc">📊</div>
+    <div class="floating-doc">📈</div>
+    <div class="floating-doc">📋</div>
+    
+    <!-- Glowing Particles -->
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <h1>TEST ANIMATION</h1>
+    <p>Jika Anda melihat:</p>
+    <p>✅ Grid lines bergerak diagonal</p>
+    <p>✅ Icon documents floating (📄 📊 📈 📋)</p>
+    <p>✅ Dots hijau neon yang glowing</p>
+    <p>✅ Card transparan dengan blur effect</p>
+    
+    <div class="card">
+      <h2 style="color: #b4ff00; margin-bottom: 20px;">GLASS MORPHISM CARD</h2>
+      <p style="font-size: 1rem;">Hover me untuk lihat efek glow!</p>
+      <p style="font-size: 0.9rem; opacity: 0.7;">Background di belakang card seharusnya blur</p>
+    </div>
+
+    <p style="margin-top: 50px; font-size: 1rem;">Perhatikan background - semua element harus bergerak smooth!</p>
+  </div>
+
+  <div class="status">
+    ✅ Animations Active
+  </div>
+</body>
+</html>

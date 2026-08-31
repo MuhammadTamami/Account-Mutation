@@ -1,0 +1,22 @@
+FILE CORRUPTED - NEED TO RESTORE
+
+The mandiri_processor.py file was corrupted during indentation fix.
+
+Issue: Tried to add password support by indenting 300+ lines, caused syntax errors and encoding issues.
+
+Solution needed:
+1. Restore from working backup, OR
+2. Rebuild process_mandiri_pdf function from scratch with proper password support
+
+Working version was tested successfully with:
+- Maret 2026 PDF: 76 transactions
+- Januari 2026 (RK): 87 transactions  
+- Februari (RK): 40 transactions
+
+Password support needed for:
+- "1. Mandiri Januari.pdf" with password "07031985"
+
+Next steps:
+- Restore file from backup or rebuild
+- Add password parameter properly
+- Test with all 4 Mandiri files
