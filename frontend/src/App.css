@@ -1135,6 +1135,23 @@ body {
   background: rgba(180, 255, 0, 0.03);
 }
 
+/* Total Row Styling for IDEB Table */
+.results-table .total-row {
+  background: rgba(180, 255, 0, 0.08) !important;
+  border-top: 2px solid rgba(180, 255, 0, 0.4);
+  border-bottom: 2px solid rgba(180, 255, 0, 0.4);
+}
+
+.results-table .total-row td {
+  padding: 18px 16px;
+  font-size: 1rem;
+  color: #b4ff00;
+}
+
+.results-table .total-row:hover {
+  background: rgba(180, 255, 0, 0.1) !important;
+}
+
 .text-right {
   text-align: right !important;
 }

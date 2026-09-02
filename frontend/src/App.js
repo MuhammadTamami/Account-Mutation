@@ -365,7 +365,7 @@ function App() {
         {/* Navbar */}
         <nav className="navbar">
           <div className="navbar-brand">
-            <h1>MUTREK</h1>
+            <h1>MURENA</h1>
           </div>
           <div className="navbar-description">
             <p>📊 Analisis Mutasi Rekening</p>
@@ -444,7 +444,7 @@ function App() {
                 <div className="card-icon">📋</div>
                 <h3 className="card-title">IDEB SLIK Analyzer</h3>
                 <p className="card-description">
-                  Analisis data kredit/pinjaman dari IDEB SLIK (Baki Debet > 0)
+                  Analisis data kredit/pinjaman dari IDEB SLIK (Baki Debet &gt; 0)
                 </p>
                 
                 <div className="card-tutorial">
@@ -453,7 +453,7 @@ function App() {
                     <li>Klik button "Upload IDEB"</li>
                     <li>Pilih/drag file IDEB PDF</li>
                     <li>Klik "Proses" dan tunggu</li>
-                    <li>Lihat data kredit dengan Baki Debet > 0</li>
+                    <li>Lihat data kredit dengan Baki Debet &gt; 0</li>
                   </ol>
                 </div>
 
@@ -488,7 +488,7 @@ function App() {
                     <span className="feature-icon-mini">📋</span>
                     <div>
                       <strong>IDEB SLIK Analyzer</strong>
-                      <p>Analisis kredit/pinjaman (Baki Debet > 0)</p>
+                      <p>Analisis kredit/pinjaman (Baki Debet &gt; 0)</p>
                     </div>
                   </div>
 
@@ -549,7 +549,7 @@ function App() {
 
               <div className="spec-card">
                 <h4>📋 IDEB SLIK</h4>
-                <p>Analisis kredit/pinjaman • Filter Baki Debet > 0</p>
+                <p>Analisis kredit/pinjaman • Filter Baki Debet &gt; 0</p>
                 <span className="spec-badge">NEW!</span>
               </div>
 
@@ -786,6 +786,8 @@ function App() {
                         <th>Tanggal Jatuh Tempo</th>
                         <th className="text-right">Jk Waktu</th>
                         <th className="text-center">Kol</th>
+                        <th>Jenis Konsumsi</th>
+                        <th className="text-right">Angsuran</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -800,8 +802,25 @@ function App() {
                           <td>{row['Tanggal Jatuh Tempo']}</td>
                           <td className="text-right">{row['Jk Waktu']}</td>
                           <td className="text-center">{row['Kol']}</td>
+                          <td>{row['Jenis Konsumsi']}</td>
+                          <td className="text-right">{row['Angsuran']}</td>
                         </tr>
                       ))}
+                      {/* Total Row */}
+                      <tr className="total-row">
+                        <td colSpan="2" className="text-right"><strong>Total</strong></td>
+                        <td className="text-right"><strong>
+                          {formatCurrency(allData.reduce((sum, row) => sum + parseIndonesianNumber(row['Plafon']), 0))}
+                        </strong></td>
+                        <td></td>
+                        <td className="text-right"><strong>
+                          {formatCurrency(allData.reduce((sum, row) => sum + parseIndonesianNumber(row['O/S']), 0))}
+                        </strong></td>
+                        <td colSpan="5"></td>
+                        <td className="text-right"><strong>
+                          {formatCurrency(allData.reduce((sum, row) => sum + parseIndonesianNumber(row['Angsuran']), 0))}
+                        </strong></td>
+                      </tr>
                     </tbody>
                   </table>
                 ) : uploadMode === 'full' && allData ? (

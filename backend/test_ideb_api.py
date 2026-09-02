@@ -1,39 +1,29 @@
+# -*- coding: utf-8 -*-
 """
-Test IDEB SLIK via API
+Test IDEB API upload
 """
 import requests
 
-API_URL = 'http://localhost:5000/api/upload'
+url = 'http://localhost:5000/api/upload'
 
 # Test IDEB file
-print('=== Testing IDEB SLIK API ===\n')
-print('📤 Uploading: IDEB PUTRI MAYA.pdf')
+file_path = r'c:\Users\muham\Desktop\BSI Excel Convert\test_data\IDEB PUTRI MAYA.pdf'
 
-with open('../test_data/IDEB PUTRI MAYA.pdf', 'rb') as f:
-    files = {'file': ('IDEB PUTRI MAYA.pdf', f, 'application/pdf')}
-    response = requests.post(API_URL, files=files)
+with open(file_path, 'rb') as f:
+    files = {'file': f}
+    response = requests.post(url, files=files)
 
-print(f'\n✓ Status: {response.status_code}')
+print(f"Status: {response.status_code}")
 
 if response.status_code == 200:
     data = response.json()
-    print(f'\n=== Summary ===')
-    summary = data['summary']
-    print(f"Total Records: {summary['totalRecords']}")
-    print(f"File Type: {summary['fileType']}")
+    print(f"\nMode: {data.get('mode')}")
+    print(f"Credits found: {len(data.get('data', []))}")
     
-    print(f'\n=== Data Preview ===')
-    if 'data' in data and len(data['data']) > 0:
-        print(f"Total credits: {len(data['data'])}")
-        print("\nFirst 3 credits:")
-        for i, credit in enumerate(data['data'][:3]):
-            print(f"\n{i+1}. {credit.get('Nama Bank', 'N/A')}")
-            print(f"   Plafon: {credit.get('Plafon', 'N/A')}")
-            print(f"   Yield: {credit.get('Yield (%)', 'N/A')}%")
-            print(f"   O/S: {credit.get('O/S', 'N/A')}")
-            print(f"   Jk Waktu: {credit.get('Jk Waktu', 'N/A')} bulan")
-            print(f"   Kol: {credit.get('Kol', 'N/A')}")
-    
-    print(f"\n✅ IDEB SLIK API Test Passed!")
+    if len(data.get('data', [])) > 0:
+        print(f"\nFirst credit columns:")
+        first_credit = data['data'][0]
+        for key, value in first_credit.items():
+            print(f"  {key}: {value}")
 else:
-    print(f'\n❌ Error: {response.text}')
+    print(f"Error: {response.text}")

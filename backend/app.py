@@ -4,6 +4,8 @@ import os
 from processors.bank_detector import detect_bank
 from processors.bsi_processor import process_bsi_file
 from processors.mandiri_processor import process_mandiri_file
+from processors.mandiri_rk_processor import process_mandiri_rk_file
+from processors.mandiri_rk_ocr_processor import process_mandiri_rk_ocr_file
 from processors.bca_processor import process_bca_file
 from processors.bri_processor import process_bri_file
 from processors.bni_processor import process_bni_file
@@ -54,6 +56,14 @@ def process_single_file(filepath, filename, pdf_password=''):
     elif bank_name == 'MANDIRI':
         df = process_mandiri_file(filepath, file_ext, pdf_password)
         file_type = f'Mandiri {file_ext.upper()}'
+    
+    elif bank_name == 'MANDIRI_RK':
+        df = process_mandiri_rk_file(filepath, file_ext, pdf_password)
+        file_type = f'Mandiri RK {file_ext.upper()}'
+    
+    elif bank_name == 'MANDIRI_RK_OCR':
+        df = process_mandiri_rk_ocr_file(filepath, file_ext, pdf_password)
+        file_type = f'Mandiri RK OCR {file_ext.upper()}'
     
     elif bank_name == 'BCA':
         df = process_bca_file(filepath, file_ext)
@@ -350,6 +360,14 @@ def upload_file():
                 df = process_mandiri_file(filepath, file_ext, pdf_password)
                 file_type = f'Mandiri {file_ext.upper()}'
             
+            elif bank_name == 'MANDIRI_RK':
+                df = process_mandiri_rk_file(filepath, file_ext, pdf_password)
+                file_type = f'Mandiri RK {file_ext.upper()}'
+            
+            elif bank_name == 'MANDIRI_RK_OCR':
+                df = process_mandiri_rk_ocr_file(filepath, file_ext, pdf_password)
+                file_type = f'Mandiri RK OCR {file_ext.upper()}'
+            
             elif bank_name == 'BCA':
                 df = process_bca_file(filepath, file_ext)
                 file_type = f'BCA {file_ext.upper()}'
@@ -419,17 +437,25 @@ def upload_file():
         if bank_name == 'IDEB':
             print(f"✓ Processing IDEB SLIK data: {len(df)} credits")
             
-            # IDEB data structure: Nama Bank, Plafon, Yield (%), O/S, Tanggal Pencairan, Tanggal Jatuh Tempo, Jk Waktu, Kol
+            # Get debitur name from DataFrame attributes
+            debitur_name = df.attrs.get('debitur_name', 'Unknown')
+            
+            # IDEB data structure: Nama Bank, Plafon, Yield (%), O/S, Tanggal Pencairan, Tanggal Jatuh Tempo, Jk Waktu, Kol, Jenis Konsumsi, Angsuran
             # Return as-is without transformation
             ideb_data = df.to_dict('records')
             
-            # Save to temp file
+            # Save to temp file (also save debitur_name in first line as comment)
             temp_filename = f"ideb_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
             temp_path = os.path.join(OUTPUT_FOLDER, temp_filename)
-            df.to_csv(temp_path, index=False)
+            
+            # Write debitur name as first line (will be read back later)
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                f.write(f"# DEBITUR_NAME:{debitur_name}\n")
+                df.to_csv(f, index=False)
             
             return jsonify({
                 'success': True,
+                'debiturName': debitur_name,
                 'mode': 'ideb',
                 'data': ideb_data,
                 'summary': {
@@ -600,31 +626,249 @@ def download_file(format):
         if mode == 'ideb':
             output_filename = f"ideb_slik_{datetime.now().strftime('%Y%m%d%H%M%S')}"
             
+            # Read debitur name from first line of temp file
+            debitur_name = 'Unknown'
+            with open(temp_path, 'r', encoding='utf-8') as f:
+                first_line = f.readline()
+                if first_line.startswith('# DEBITUR_NAME:'):
+                    debitur_name = first_line.replace('# DEBITUR_NAME:', '').strip()
+            
+            # Read the CSV (skip first line if it's comment)
+            df = pd.read_csv(temp_path, comment='#')
+            
+            # Helper function to parse Indonesian number format (with all commas)
+            def parse_indonesian_number(val):
+                if pd.isna(val) or val == '' or val == '-':
+                    return 0.0
+                val_str = str(val).strip()
+                
+                # Format: 1,250,000,000,00 (all commas)
+                last_comma_pos = val_str.rfind(',')
+                
+                if last_comma_pos == -1:
+                    try:
+                        return float(val_str)
+                    except:
+                        return 0.0
+                
+                # Check if last comma is decimal (within last 3 chars)
+                if len(val_str) - last_comma_pos <= 3:
+                    before_decimal = val_str[:last_comma_pos].replace(',', '')
+                    after_decimal = val_str[last_comma_pos + 1:]
+                    val_str = f"{before_decimal}.{after_decimal}"
+                else:
+                    val_str = val_str.replace(',', '')
+                
+                try:
+                    return float(val_str)
+                except:
+                    return 0.0
+            
+            # Calculate totals
+            df_numeric = df.copy()
+            df_numeric['Plafon_numeric'] = df_numeric['Plafon'].apply(parse_indonesian_number)
+            df_numeric['OS_numeric'] = df_numeric['O/S'].apply(parse_indonesian_number)
+            df_numeric['Angsuran_numeric'] = df_numeric['Angsuran'].apply(parse_indonesian_number)
+            
+            total_plafon = df_numeric['Plafon_numeric'].sum()
+            total_os = df_numeric['OS_numeric'].sum()
+            total_angsuran = df_numeric['Angsuran_numeric'].sum()
+            
             if format == 'excel':
                 output_path = os.path.join(OUTPUT_FOLDER, f"{output_filename}.xlsx")
                 
-                # Write to Excel
-                with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False, sheet_name='IDEB SLIK')
-                    
-                    # Get worksheet and apply formatting
-                    worksheet = writer.sheets['IDEB SLIK']
-                    
-                    # Auto-adjust column widths
-                    from openpyxl.utils import get_column_letter
-                    for idx, col in enumerate(df.columns, 1):
-                        column_letter = get_column_letter(idx)
-                        max_length = max(
-                            df[col].astype(str).apply(len).max(),
-                            len(col)
-                        ) + 2
-                        worksheet.column_dimensions[column_letter].width = min(max_length, 50)
+                # Create Excel with custom formatting
+                from openpyxl import Workbook
+                from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                from openpyxl.utils import get_column_letter
+                from datetime import datetime as dt
                 
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "IDEB SLIK"
+                
+                # B4: Debitur Name
+                ws['B4'] = debitur_name.upper()
+                ws['B4'].font = Font(bold=True, size=12)
+                
+                # B5: Table Header (Row 5, starting from column B)
+                headers = ['No', 'Nama Bank', 'Plafon', 'Yield (%)', 'O/S', 'Tanggal Pencairan', 'Tanggal Jatuh Tempo', 'Jk Waktu', 'Kol', 'Angsuran']
+                header_row = 5
+                start_col = 2  # B column
+                
+                # Define colors based on screenshot
+                header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")  # Light gray
+                header_font = Font(bold=True, size=10)
+                header_alignment = Alignment(horizontal='center', vertical='center')
+                thin_border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+                
+                # Write headers
+                for col_idx, header in enumerate(headers, start=start_col):
+                    cell = ws.cell(row=header_row, column=col_idx)
+                    cell.value = header
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = header_alignment
+                    cell.border = thin_border
+                
+                # Write data rows
+                data_start_row = header_row + 1
+                for row_idx, (_, row) in enumerate(df.iterrows(), start=data_start_row):
+                    # No (column B)
+                    ws.cell(row=row_idx, column=start_col, value=row_idx - header_row)
+                    
+                    # Nama Bank (column C)
+                    ws.cell(row=row_idx, column=start_col + 1, value=row['Nama Bank'])
+                    
+                    # Plafon (column D) - number format
+                    plafon_val = parse_indonesian_number(row['Plafon'])
+                    cell_plafon = ws.cell(row=row_idx, column=start_col + 2, value=plafon_val)
+                    cell_plafon.number_format = '#,##0'
+                    
+                    # Yield (column E) - display as number not percentage (3.5 not 3.5%)
+                    yield_val = row['Yield (%)']
+                    # Remove % if exists
+                    if isinstance(yield_val, str):
+                        yield_val = yield_val.replace('%', '').strip()
+                    try:
+                        yield_float = float(str(yield_val).replace(',', '.'))
+                        cell_yield = ws.cell(row=row_idx, column=start_col + 3, value=yield_float)
+                        cell_yield.number_format = '0.00'  # Display as 3.50 not 3.50%
+                    except:
+                        ws.cell(row=row_idx, column=start_col + 3, value=yield_val)
+                    
+                    # O/S (column F) - number format
+                    os_val = parse_indonesian_number(row['O/S'])
+                    cell_os = ws.cell(row=row_idx, column=start_col + 4, value=os_val)
+                    cell_os.number_format = '#,##0'
+                    
+                    # Tanggal Pencairan (column G) - date format: 16-Dec-21
+                    date_pencairan_str = row['Tanggal Pencairan']
+                    try:
+                        # Parse mm/dd/yyyy format
+                        date_obj = dt.strptime(date_pencairan_str, '%m/%d/%Y')
+                        cell_tgl = ws.cell(row=row_idx, column=start_col + 5, value=date_obj)
+                        cell_tgl.number_format = 'DD-MMM-YY'
+                    except:
+                        ws.cell(row=row_idx, column=start_col + 5, value=date_pencairan_str)
+                    
+                    # Tanggal Jatuh Tempo (column H) - date format: 16-Dec-21
+                    date_tempo_str = row['Tanggal Jatuh Tempo']
+                    try:
+                        date_obj = dt.strptime(date_tempo_str, '%m/%d/%Y')
+                        cell_tgl2 = ws.cell(row=row_idx, column=start_col + 6, value=date_obj)
+                        cell_tgl2.number_format = 'DD-MMM-YY'
+                    except:
+                        ws.cell(row=row_idx, column=start_col + 6, value=date_tempo_str)
+                    
+                    # Jk Waktu (column I)
+                    ws.cell(row=row_idx, column=start_col + 7, value=row['Jk Waktu'])
+                    
+                    # Kol (column J)
+                    ws.cell(row=row_idx, column=start_col + 8, value=row['Kol'])
+                    
+                    # Angsuran (column K) - number format
+                    angsuran_val = parse_indonesian_number(row['Angsuran'])
+                    cell_angsuran = ws.cell(row=row_idx, column=start_col + 9, value=angsuran_val)
+                    cell_angsuran.number_format = '#,##0'
+                    
+                    # Apply borders to all cells in this row
+                    for col_idx in range(start_col, start_col + 10):
+                        ws.cell(row=row_idx, column=col_idx).border = thin_border
+                
+                # Total row
+                total_row = data_start_row + len(df)
+                total_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Yellow
+                total_font = Font(bold=True)
+                
+                # "Total" label (merge B and C)
+                ws.merge_cells(f'B{total_row}:C{total_row}')
+                cell_total_label = ws.cell(row=total_row, column=start_col)
+                cell_total_label.value = "Total"
+                cell_total_label.fill = total_fill
+                cell_total_label.font = total_font
+                cell_total_label.alignment = Alignment(horizontal='center', vertical='center')
+                cell_total_label.border = thin_border
+                
+                # Total Plafon (column D)
+                cell_total_plafon = ws.cell(row=total_row, column=start_col + 2, value=total_plafon)
+                cell_total_plafon.number_format = '#,##0'
+                cell_total_plafon.fill = total_fill
+                cell_total_plafon.font = total_font
+                cell_total_plafon.border = thin_border
+                
+                # Empty cells with yellow background (E, F, G, H, I, J)
+                for col_offset in [3, 4, 5, 6, 7, 8]:
+                    cell = ws.cell(row=total_row, column=start_col + col_offset)
+                    cell.fill = total_fill
+                    cell.border = thin_border
+                
+                # Total O/S (but left empty per screenshot - only Plafon and Angsuran have totals)
+                # Actually from screenshot, O/S also has total
+                cell_total_os = ws.cell(row=total_row, column=start_col + 4, value=total_os)
+                cell_total_os.number_format = '#,##0'
+                cell_total_os.fill = total_fill
+                cell_total_os.font = total_font
+                cell_total_os.border = thin_border
+                
+                # Total Angsuran (column K)
+                cell_total_angsuran = ws.cell(row=total_row, column=start_col + 9, value=total_angsuran)
+                cell_total_angsuran.number_format = '#,##0'
+                cell_total_angsuran.fill = total_fill
+                cell_total_angsuran.font = total_font
+                cell_total_angsuran.border = thin_border
+                
+                # Adjust column widths
+                ws.column_dimensions['A'].width = 2
+                ws.column_dimensions['B'].width = 6
+                ws.column_dimensions['C'].width = 30
+                ws.column_dimensions['D'].width = 15
+                ws.column_dimensions['E'].width = 10
+                ws.column_dimensions['F'].width = 15
+                ws.column_dimensions['G'].width = 12
+                ws.column_dimensions['H'].width = 12
+                ws.column_dimensions['I'].width = 10
+                ws.column_dimensions['J'].width = 6
+                ws.column_dimensions['K'].width = 15
+                
+                wb.save(output_path)
                 return send_file(output_path, as_attachment=True, download_name=f"{output_filename}.xlsx")
             
             elif format == 'csv':
+                # For CSV, add Total row to DataFrame
+                def format_indonesian_number(value):
+                    if pd.isna(value) or value == 0:
+                        return "0,00"
+                    formatted = f"{value:,.2f}"
+                    formatted = formatted.replace('.', ',')
+                    return formatted
+                
+                total_row = pd.DataFrame([{
+                    'Nama Bank': 'TOTAL',
+                    'Plafon': format_indonesian_number(total_plafon),
+                    'Yield (%)': '',
+                    'O/S': format_indonesian_number(total_os),
+                    'Tanggal Pencairan': '',
+                    'Tanggal Jatuh Tempo': '',
+                    'Jk Waktu': '',
+                    'Kol': '',
+                    'Jenis Konsumsi': '',
+                    'Angsuran': format_indonesian_number(total_angsuran)
+                }])
+                
+                df_with_total = pd.concat([df, total_row], ignore_index=True)
+                
                 output_path = os.path.join(OUTPUT_FOLDER, f"{output_filename}.csv")
-                df.to_csv(output_path, index=False)
+                # Add debitur name as first line
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(f"# Debitur: {debitur_name}\n")
+                    df_with_total.to_csv(f, index=False)
+                
                 return send_file(output_path, as_attachment=True, download_name=f"{output_filename}.csv")
             
             else:

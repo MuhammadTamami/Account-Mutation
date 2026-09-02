@@ -64,6 +64,7 @@ def detect_bank_from_pdf(filepath):
         # Try pdfplumber first
         text = None
         text_lower = None
+        is_scanned = False
         
         try:
             # Try to open PDF - first without password, then with common passwords
@@ -91,6 +92,13 @@ def detect_bank_from_pdf(filepath):
                         first_page = pdf.pages[0]
                         text = first_page.extract_text()
                         
+                        # Check if page has images (scanned)
+                        if first_page.images and len(first_page.images) > 0:
+                            # Has images, might be scanned
+                            if not text or len(text.strip()) < 100:
+                                is_scanned = True
+                                print(f"📷 Detected scanned/image-based PDF ({len(first_page.images)} images on first page)")
+                        
                         if not text:
                             # Try second page if first page has no text
                             if len(pdf.pages) > 1:
@@ -108,15 +116,38 @@ def detect_bank_from_pdf(filepath):
                 import fitz  # PyMuPDF
                 doc = fitz.open(filepath)
                 if len(doc) > 0:
-                    text = doc[0].get_text()
+                    page = doc[0]
+                    text = page.get_text()
+                    
+                    # Check if page has images
+                    img_list = page.get_images()
+                    if img_list and len(img_list) > 0:
+                        if not text or len(text.strip()) < 100:
+                            is_scanned = True
+                            print(f"📷 Detected scanned/image-based PDF ({len(img_list)} images on first page)")
+                    
                     if not text and len(doc) > 1:
                         text = doc[1].get_text()
                 doc.close()
-                print(f"✓ PyMuPDF successfully extracted text")
+                if text:
+                    print(f"✓ PyMuPDF successfully extracted text")
             except Exception as e:
                 print(f"⚠ PyMuPDF also failed: {e}")
         
-        if not text:
+        if not text or len(text.strip()) < 50:
+            # No text or minimal text - check if it's scanned
+            if is_scanned:
+                print(f"⚠ Scanned PDF detected - checking for RK format indicators")
+                # Try to detect format from file name or limited text
+                filename = filepath.lower()
+                if 'rk' in filename or 'rekening koran' in filename or 'giro' in filename:
+                    if 'bdk' in filename or 'barakat' in filename or 'mandiri' in filename:
+                        print(f"✓ Detected from filename: MANDIRI_RK_OCR (scanned)")
+                        return 'MANDIRI_RK_OCR'
+                
+                print(f"⚠ Could not determine bank type from scanned PDF")
+                return 'UNKNOWN'
+            
             print(f"⚠ Could not extract text from PDF: {filepath}")
             return 'UNKNOWN'
         
@@ -132,11 +163,21 @@ def detect_bank_from_pdf(filepath):
             return 'IDEB'
         
         # Mandiri patterns - CHECK AFTER IDEB (before BRI check)
-        # Pattern 1: Mandiri e-Statement format (has both "e-statement" AND "menara mandiri")
+        # Pattern 1: Mandiri RK (Rekening Koran) format - Standard Mandiri format with specific structure
+        # Characteristic: "TRANS EFF. TRANS TRANS CHEQUE Debit Kredit Ledger Balance"
+        # Also has "DATE DATE DESCRIPTION CODE NO" pattern
+        if ('trans eff.' in text_lower or 'trans  eff.' in text_lower) and 'ledger balance' in text_lower:
+            print(f"✓ Detected: MANDIRI_RK (found Mandiri RK format with 'trans eff.' and 'ledger balance')")
+            return 'MANDIRI_RK'
+        # Check for DDI230P report code (common in Mandiri RK)
+        if 'ddi230p' in text_lower and ('debit' in text_lower and 'kredit' in text_lower):
+            print(f"✓ Detected: MANDIRI_RK (found DDI230P report with debit/kredit columns)")
+            return 'MANDIRI_RK'
+        # Pattern 2: Mandiri e-Statement format (has both "e-statement" AND "menara mandiri")
         if 'e-statement' in text_lower and 'menara mandiri' in text_lower:
             print(f"✓ Detected: MANDIRI (found 'e-statement' + 'menara mandiri')")
             return 'MANDIRI'
-        # Pattern 2: Account Statement format
+        # Pattern 3: Account Statement format
         if 'account statement' in text_lower and 'posting date' in text_lower:
             print(f"✓ Detected: MANDIRI (found 'account statement' + 'posting date')")
             return 'MANDIRI'

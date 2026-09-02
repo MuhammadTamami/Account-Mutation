@@ -6,6 +6,35 @@ import pandas as pd
 import re
 from datetime import datetime
 
+def calculate_pmt(rate_annual, nper_months, pv):
+    """
+    Calculate monthly payment (angsuran) using PMT formula
+    PMT(rate, nper, pv)
+    
+    Args:
+        rate_annual: Annual interest rate in percentage (e.g., 3.5 for 3.5%)
+        nper_months: Number of periods in months
+        pv: Present value (plafon/principal)
+    
+    Returns:
+        Monthly payment amount (positive number)
+    """
+    if nper_months == 0 or pv == 0:
+        return 0.0
+    
+    # Convert annual rate to monthly rate
+    rate_monthly = (rate_annual / 100) / 12
+    
+    if rate_monthly == 0:
+        # If rate is 0, payment is simply principal / number of periods
+        return pv / nper_months
+    
+    # PMT formula: pv * (rate * (1 + rate)^nper) / ((1 + rate)^nper - 1)
+    numerator = pv * rate_monthly * ((1 + rate_monthly) ** nper_months)
+    denominator = ((1 + rate_monthly) ** nper_months) - 1
+    
+    return numerator / denominator
+
 def clean_amount(amount_str):
     """Convert Indonesian number format to float"""
     if pd.isna(amount_str) or amount_str == '' or amount_str == '-':
@@ -132,6 +161,10 @@ def process_ideb_pdf(filepath):
     - Tanggal Jatuh Tempo (from Tanggal Jatuh Tempo)
     - Jk Waktu (calculated in months)
     - Kol (from Kualitas, number only)
+    - Jenis Konsumsi (from Jenis Penggunaan)
+    - Angsuran (calculated using PMT formula: -PMT(Yield/12, Jk Waktu, Plafon))
+    
+    Also returns debitur_name in DataFrame attributes
     """
     try:
         import fitz  # PyMuPDF
@@ -141,9 +174,47 @@ def process_ideb_pdf(filepath):
     
     try:
         output_data = []
+        debitur_name = None
         
         doc = fitz.open(filepath)
         print(f"📄 Processing IDEB SLIK PDF: {len(doc)} pages")
+        
+        # Extract debitur name from first page (Data Pokok Debitur)
+        if len(doc) > 0:
+            first_page_text = doc[0].get_text()
+            lines = first_page_text.split('\n')
+            
+            # Look for "Nama Sesuai Identitas" pattern
+            for i, line in enumerate(lines):
+                if 'Nama Sesuai Identitas' in line:
+                    # Name is usually 5 lines after (skip: Identitas, Jenis Kelamin/NPWP, Tempat/Tgl Lahir, Pelapor/Tanggal Update, then Name)
+                    # Actually based on the output: line 27 is "Nama Sesuai Identitas", line 32 is the actual name
+                    # That's 5 lines gap (27 -> 28, 29, 30, 31, 32)
+                    name_line_idx = i + 5
+                    if name_line_idx < len(lines):
+                        potential_name = lines[name_line_idx].strip()
+                        # Validate it's a name (not empty, not too short, contains letters, no slashes)
+                        if potential_name and len(potential_name) > 3 and '/' not in potential_name and any(c.isalpha() for c in potential_name):
+                            debitur_name = potential_name
+                            print(f"✓ Debitur Name: {debitur_name}")
+                            break
+            
+            # Fallback: look after "Data Pokok Debitur"
+            if not debitur_name:
+                for i, line in enumerate(lines):
+                    if 'Data Pokok Debitur' in line:
+                        # Scan next 20 lines for a valid name
+                        for j in range(i + 1, min(i + 20, len(lines))):
+                            potential_name = lines[j].strip()
+                            # Must be: length > 5, contains space (first + last name), all letters/spaces, no numbers
+                            if (len(potential_name) > 5 and 
+                                ' ' in potential_name and 
+                                all(c.isalpha() or c.isspace() for c in potential_name) and
+                                potential_name.isupper()):  # Names usually in uppercase in official docs
+                                debitur_name = potential_name
+                                print(f"✓ Debitur Name (fallback): {debitur_name}")
+                                break
+                        break
         
         # Extract all text
         full_text = ""
@@ -251,6 +322,21 @@ def process_ideb_pdf(filepath):
                 kualitas_str = kualitas_match.group(1) if kualitas_match else ''
                 kol = extract_kualitas_number(kualitas_str)
                 
+                # Extract Jenis Penggunaan (Jenis Konsumsi)
+                # Format: "Jenis Penggunaan\n[VALUE]"
+                jenis_match = re.search(r'Jenis Penggunaan\s+([^\n]+)', entry)
+                jenis_konsumsi = jenis_match.group(1).strip() if jenis_match else '-'
+                
+                # Calculate Angsuran (Monthly Payment)
+                # Formula: PMT(Yield/12, Jk Waktu, Plafon)
+                # Parse Yield as float
+                try:
+                    yield_float = float(suku_bunga.replace(',', '.'))
+                except:
+                    yield_float = 0.0
+                
+                angsuran = calculate_pmt(yield_float, jk_waktu, plafon_awal)
+                
                 # Format dates as mm/dd/yyyy for Excel
                 tgl_pencairan_formatted = format_date_mmddyyyy(tgl_pencairan)
                 tgl_jatuh_tempo_formatted = format_date_mmddyyyy(tgl_jatuh_tempo)
@@ -264,7 +350,9 @@ def process_ideb_pdf(filepath):
                     'Tanggal Pencairan': tgl_pencairan_formatted,
                     'Tanggal Jatuh Tempo': tgl_jatuh_tempo_formatted,
                     'Jk Waktu': jk_waktu,
-                    'Kol': kol
+                    'Kol': kol,
+                    'Jenis Konsumsi': jenis_konsumsi,
+                    'Angsuran': format_number_all_commas(angsuran)
                 })
                 
                 print(f"✓ Extracted: {pelapor} - Baki Debet: {format_number_all_commas(baki_debet)}")
@@ -281,6 +369,10 @@ def process_ideb_pdf(filepath):
         
         # Create DataFrame
         df = pd.DataFrame(output_data)
+        
+        # Store debitur name in DataFrame attributes
+        if debitur_name:
+            df.attrs['debitur_name'] = debitur_name
         
         return df
     
