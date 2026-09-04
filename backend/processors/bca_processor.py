@@ -37,17 +37,13 @@ def clean_amount(amount_str):
         return 0.0
 
 def format_indonesian_number(value):
-    """Format number as Indonesian format"""
+    """Format number as International format: 18,000,000.00"""
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return "0.00"
     
-    formatted = f"{value:.2f}"
-    parts = formatted.split('.')
-    integer_part = parts[0]
-    decimal_part = parts[1]
-    
-    integer_with_sep = f"{int(integer_part):,}"
-    return f"{integer_with_sep},{decimal_part}"
+    # Use standard US locale format (comma for thousands, dot for decimal)
+    formatted = f"{value:,.2f}"
+    return formatted
 
 def parse_bca_date(date_str):
     """Parse BCA date formats"""
@@ -153,13 +149,19 @@ def process_bca_csv(filepath):
 
 def process_bca_pdf(filepath):
     """
-    Process BCA PDF format using PyMuPDF (more robust than pdfplumber)
-    Handles BCA Rekening Tahapan statement format with tabular layout
+    Process BCA PDF format using PyMuPDF
+    
+    Rules for extraction:
+    1. Type detection: Check if amount line has "DB" suffix
+       - Has "DB" → Debit
+       - No "DB" → Credit
+    2. Balance: Extract from lines that show balance (after net amount)
+    3. Amount: Use net amount (after DDR line)
     """
     try:
         import fitz  # PyMuPDF
     except ImportError:
-        print(f"⚠ PyMuPDF not installed. Install with: pip install PyMuPDF")
+        print(f"WARNING: PyMuPDF not installed. Install with: pip install PyMuPDF")
         return pd.DataFrame()
     
     try:
@@ -167,29 +169,20 @@ def process_bca_pdf(filepath):
         account_info = {}
         
         doc = fitz.open(filepath)
-        print(f"📄 Processing BCA PDF: {len(doc)} pages")
+        print(f"Processing BCA PDF: {len(doc)} pages")
         
-        # Extract account info from first page
+        # Extract account info and summary from first and last page
         if len(doc) > 0:
             first_text = doc[0].get_text()
             lines = first_text.split('\n')
             
             for i, line in enumerate(lines):
                 if 'NO. REKENING' in line or 'NO REKENING' in line:
-                    # Account number is usually next line or after ':'
                     if i + 1 < len(lines):
                         acc_no = lines[i + 1].strip()
                         if acc_no == ':' and i + 2 < len(lines):
                             acc_no = lines[i + 2].strip()
                         account_info['accountNumber'] = acc_no
-                
-                # Find name (usually after address lines)
-                if 'REKENING' in line and 'TAHAPAN' in line:
-                    # Name is usually a few lines after
-                    if i + 2 < len(lines):
-                        name = lines[i + 2].strip()
-                        if name and not any(skip in name for skip in ['KEC', 'KEL', 'DSN', 'KAB', ':']):
-                            account_info['name'] = name
                 
                 if 'PERIODE' in line:
                     if i + 1 < len(lines):
@@ -198,8 +191,75 @@ def process_bca_pdf(filepath):
                             period = lines[i + 2].strip()
                         account_info['period'] = period
             
+            # Try to find name (look for capitalized name before address keywords)
+            for i, line in enumerate(lines):
+                if line.strip() and len(line.strip()) > 5:
+                    # Check if next lines contain address keywords
+                    if i + 1 < len(lines):
+                        next_line = lines[i + 1].strip()
+                        if any(kw in next_line for kw in ['KEC', 'KEL', 'DSN', 'KAB']):
+                            # This line is likely the name
+                            name = line.strip()
+                            if not any(skip in name for skip in ['REKENING', 'TAHAPAN', 'KCP', 'NO.']):
+                                account_info['name'] = name
+                                break
+            
             if account_info:
-                print(f"✓ Account: {account_info.get('name', '?')} ({account_info.get('accountNumber', '?')})")
+                print(f"OK Account: {account_info.get('name', '?')} ({account_info.get('accountNumber', '?')})")
+        
+        # Extract summary from last page
+        summary = {}
+        if len(doc) > 0:
+            last_text = doc[-1].get_text()
+            last_lines = last_text.split('\n')
+            
+            for i, line in enumerate(last_lines):
+                line_stripped = line.strip()
+                
+                if 'SALDO AWAL' in line_stripped:
+                    # Look for amount in next few lines (skip :)
+                    for j in range(i + 1, min(i + 5, len(last_lines))):
+                        val = last_lines[j].strip().replace(':', '').strip()
+                        if val and ',' in val and '.' in val:
+                            summary['saldo_awal'] = clean_amount(val)
+                            break
+                
+                elif line_stripped == 'MUTASI CR':  # Exact match
+                    # Look for amount in next few lines (skip :)
+                    for j in range(i + 1, min(i + 5, len(last_lines))):
+                        val = last_lines[j].strip().replace(':', '').strip()
+                        if val and ',' in val and '.' in val:
+                            summary['mutasi_cr'] = clean_amount(val)
+                            # Count is next numeric line
+                            for k in range(j + 1, min(j + 3, len(last_lines))):
+                                if last_lines[k].strip().isdigit():
+                                    summary['count_cr'] = int(last_lines[k].strip())
+                                    break
+                            break
+                
+                elif line_stripped == 'MUTASI DB':  # Exact match
+                    # Look for amount in next few lines (skip :)
+                    for j in range(i + 1, min(i + 5, len(last_lines))):
+                        val = last_lines[j].strip().replace(':', '').strip()
+                        if val and ',' in val and '.' in val:
+                            summary['mutasi_db'] = clean_amount(val)
+                            # Count is next numeric line
+                            for k in range(j + 1, min(j + 3, len(last_lines))):
+                                if last_lines[k].strip().isdigit():
+                                    summary['count_db'] = int(last_lines[k].strip())
+                                    break
+                            break
+                
+                elif 'SALDO AKHIR' in line_stripped:
+                    # Look for amount in next few lines (skip :)
+                    for j in range(i + 1, min(i + 5, len(last_lines))):
+                        val = last_lines[j].strip().replace(':', '').strip()
+                        if val and ',' in val and '.' in val:
+                            summary['saldo_akhir'] = clean_amount(val)
+                            break
+        
+        if summary:
+            print(f"OK Summary: CR {summary.get('count_cr', '?')} txns, DB {summary.get('count_db', '?')} txns")
         
         # Get year from period for date parsing
         year = None
@@ -209,7 +269,7 @@ def process_bca_pdf(filepath):
                 year = period_match.group(1)
         
         if not year:
-            print(f"⚠ Could not extract year from period")
+            print(f"WARNING: Could not extract year from period")
             return pd.DataFrame()
         
         # Process all pages for transactions
@@ -222,113 +282,125 @@ def process_bca_pdf(filepath):
             while i < len(lines):
                 line = lines[i].strip()
                 
-                # Skip empty lines and headers
+                # Skip empty lines
                 if not line:
                     i += 1
                     continue
                 
-                # Skip known header/footer keywords
+                # Skip headers
                 if any(kw in line for kw in ['REKENING', 'HALAMAN', 'PERIODE', 'MATA UANG', 'CATATAN', 'Bersambung', 'TANGGAL', 'KETERANGAN', 'CBG', 'MUTASI', 'SALDO']):
                     i += 1
                     continue
                 
-                # Look for date pattern at start of line: DD/MM
+                # Look for date pattern: DD/MM
                 date_match = re.match(r'^(\d{2}/\d{2})$', line)
                 
                 if date_match:
                     try:
-                        date_str = date_match.group(1)  # DD/MM
+                        date_str = date_match.group(1)
                         date = pd.to_datetime(f"{date_str}/{year}", format='%d/%m/%Y')
                         
-                        # Collect description, reference, branch, amounts from next lines
+                        # Collect description and amounts
                         description_parts = []
-                        reference = '-'
-                        branch = ''
                         amount = 0.0
                         balance = 0.0
                         transaction_type = None
+                        branch = ''
                         
-                        # Look at next 20 lines for transaction details
-                        for j in range(i + 1, min(i + 20, len(lines))):
+                        # Look at next lines for transaction details
+                        j = i + 1
+                        found_amount = False
+                        
+                        while j < min(i + 25, len(lines)):
                             next_line = lines[j].strip()
-                            
-                            if not next_line:
-                                continue
                             
                             # Stop if we hit another date
                             if re.match(r'^\d{2}/\d{2}$', next_line):
-                                i = j - 1  # Back up to process this date
                                 break
                             
-                            # Check if this line is a branch code (4 digits)
-                            if re.match(r'^\d{4}$', next_line):
-                                branch = next_line
+                            # Skip empty lines
+                            if not next_line:
+                                j += 1
                                 continue
                             
-                            # Check if line contains amount (Indonesian format: 123,456.78 or 123,456,789.12)
-                            # Amounts can be on same line as branch or separate
-                            amount_match = re.search(r'([\d,]+\.\d{2})', next_line)
+                            # Check for branch code (4 digits)
+                            if re.match(r'^\d{4}$', next_line):
+                                branch = next_line
+                                j += 1
+                                continue
+                            
+                            # Skip QR/TGH/DDR lines (these are intermediate values)
+                            if next_line.startswith('QR :') or next_line.startswith('TGH:') or next_line.startswith('DDR:'):
+                                j += 1
+                                continue
+                            
+                            # Check for net amount line
+                            # Format: "123,456.78" or "123,456.78 DB"
+                            # Can appear with or without branch code
+                            amount_pattern = r'^([\d,]+\.\d{2})(\s+DB)?$'
+                            amount_match = re.match(amount_pattern, next_line)
                             
                             if amount_match:
-                                amount_str = amount_match.group(1)
-                                amount = clean_amount(amount_str)
+                                # Check if we have enough context (either branch or description)
+                                has_context = branch or len(description_parts) > 0
                                 
-                                # Check if there's another amount after this (balance)
-                                # Look for next amount in this line or next few lines
-                                remainder = next_line[amount_match.end():].strip()
-                                balance_match = re.search(r'([\d,]+\.\d{2})', remainder)
-                                
-                                if balance_match:
-                                    balance = clean_amount(balance_match.group(1))
-                                else:
-                                    # Balance might be on next line
-                                    if j + 1 < len(lines):
-                                        next_next = lines[j + 1].strip()
-                                        balance_match = re.match(r'^([\d,]+\.\d{2})$', next_next)
-                                        if balance_match:
-                                            balance = clean_amount(balance_match.group(1))
-                                
-                                # Determine type: if description contains "DB" or starts with debit keywords
-                                desc_text = ' '.join(description_parts).upper()
-                                if 'TRSF' in desc_text or 'TARIKAN' in desc_text or 'PAJAK' in desc_text or 'BIAYA' in desc_text:
-                                    transaction_type = 'Debit'
-                                else:
-                                    transaction_type = 'Credit'
-                                
-                                break
+                                if has_context:
+                                    amount = clean_amount(amount_match.group(1))
+                                    has_db = amount_match.group(2) is not None
+                                    
+                                    # Type detection: Has " DB" suffix = Debit, No " DB" = Credit
+                                    transaction_type = 'Debit' if has_db else 'Credit'
+                                    found_amount = True
+                                    
+                                    # Look for balance in next few lines
+                                    for k in range(j + 1, min(j + 5, len(lines))):
+                                        bal_line = lines[k].strip()
+                                        # Balance is a standalone amount (no DB suffix, with comma)
+                                        if re.match(r'^[\d,]+\.\d{2}$', bal_line):
+                                            # Make sure it's not another transaction amount
+                                            # Balance usually larger than individual transaction
+                                            bal_amt = clean_amount(bal_line)
+                                            if bal_amt > amount:  # Simple heuristic
+                                                balance = bal_amt
+                                                break
+                                    
+                                    break
                             else:
-                                # This is description or reference line
-                                # Check for MID/reference patterns
-                                if 'MID :' in next_line or re.match(r'^\d{4}/', next_line):
-                                    reference = next_line
-                                
-                                description_parts.append(next_line)
+                                # This is description
+                                if not next_line.startswith(('MID', ':', 'QR', 'TGH', 'DDR')) and not next_line.isdigit():
+                                    description_parts.append(next_line)
+                            
+                            j += 1
                         
-                        # If we found an amount, add transaction
-                        if amount > 0 and transaction_type:
+                        # Add transaction if we found amount
+                        if found_amount and transaction_type:
                             description = ' '.join(description_parts).strip()
-                            description = ' '.join(description.split())  # Clean multiple spaces
+                            description = ' '.join(description.split())  # Clean spaces
                             
                             output_data.append({
                                 'Date': date,
-                                'Reference': reference,
+                                'Reference': branch if branch else '-',
                                 'Description': description,
                                 'Type': transaction_type,
                                 'Amount': format_indonesian_number(amount),
-                                'Balance': format_indonesian_number(balance)
+                                'Balance': format_indonesian_number(balance) if balance > 0 else '0.00'
                             })
+                        
+                        # Move to where we stopped
+                        i = j
                     
                     except Exception as e:
-                        print(f"⚠ Error parsing line {i} on page {page_num + 1}: {e}")
-                
-                i += 1
+                        print(f"WARNING: Error parsing line {i} on page {page_num + 1}: {e}")
+                        i += 1
+                else:
+                    i += 1
         
         doc.close()
         
-        print(f"✓ Extracted {len(output_data)} transactions from BCA PDF")
+        print(f"OK Extracted {len(output_data)} transactions from BCA PDF")
         
         if len(output_data) == 0:
-            print(f"⚠ No transactions extracted")
+            print(f"WARNING: No transactions extracted")
             return pd.DataFrame()
         
         # Create DataFrame
@@ -338,13 +410,25 @@ def process_bca_pdf(filepath):
         # Attach metadata
         if account_info:
             df.attrs['account_info'] = account_info
+        if summary:
+            df.attrs['summary'] = summary
+        
+        # Validate against summary
+        if summary:
+            actual_cr = len(df[df['Type'] == 'Credit'])
+            actual_db = len(df[df['Type'] == 'Debit'])
+            expected_cr = summary.get('count_cr', 0)
+            expected_db = summary.get('count_db', 0)
+            
+            if actual_cr != expected_cr or actual_db != expected_db:
+                print(f"WARNING: Count mismatch: CR {actual_cr}/{expected_cr}, DB {actual_db}/{expected_db}")
+            else:
+                print(f"OK Validation passed: CR {actual_cr}, DB {actual_db}")
         
         return df
     
     except Exception as e:
-        print(f"❌ Error processing BCA PDF: {e}")
-        print(f"⚠ BCA PDF format may be complex or image-based")
-        print(f"✅ SOLUTION: Export to CSV/Excel from BCA Internet Banking and upload")
+        print(f"ERROR: Error processing BCA PDF: {e}")
         import traceback
         traceback.print_exc()
         return pd.DataFrame()
