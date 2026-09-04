@@ -58,18 +58,15 @@ def clean_amount(amount_str):
 
 def format_number_all_commas(value):
     """
-    Format number with commas for both thousand separator and decimal separator
-    Example: 337,313,654,34 (all commas)
+    Format number without decimal places (round to integer)
+    Returns plain integer string without any separators for Excel compatibility
+    Example: 1460000000 (Excel will format it with separators in display)
     """
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return 0
     
-    # Format with comma as thousand separator and dot as decimal
-    formatted = f"{value:,.2f}"
-    # Replace dot with comma for decimal
-    formatted = formatted.replace('.', ',')
-    
-    return formatted
+    # Round to integer and return as int (Excel will handle formatting)
+    return int(round(value))
 
 def parse_date(date_str):
     """Parse date from various formats"""

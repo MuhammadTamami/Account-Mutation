@@ -1,69 +1,94 @@
-"""
-Test IDEB Excel export with mm/dd/yyyy date format
-"""
-import requests
+"""Test IDEB SUYANTO Excel export"""
+from processors.ideb_processor import process_ideb_file
 import pandas as pd
-from datetime import datetime
+from openpyxl import load_workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+import os
 
-print("=== Testing IDEB Excel Export ===\n")
+# Process the PDF
+df = process_ideb_file('../test_data/IDEB SUYANTO.pdf', 'pdf')
 
-# Step 1: Upload file
-print("📤 Step 1: Uploading IDEB PUTRI MAYA.pdf...")
-with open('../test_data/IDEB PUTRI MAYA.pdf', 'rb') as f:
-    files = {'file': f}
-    r = requests.post('http://localhost:5000/api/upload', files=files)
+# Export to Excel
+output_path = 'outputs/test_ideb_suyanto.xlsx'
+df.to_excel(output_path, index=False, sheet_name='Data Kredit')
 
-if r.status_code != 200:
-    print(f"❌ Upload failed: {r.json()}")
-    exit(1)
+print(f"✅ Excel exported to: {output_path}")
 
-data = r.json()
-temp_file = data['tempFile']
-print(f"✅ Upload successful! Temp file: {temp_file}")
-print(f"   Total credits: {data['summary']['totalRecords']}")
+# Now enhance with formatting
+wb = load_workbook(output_path)
+ws = wb.active
 
-# Step 2: Download Excel
-print(f"\n📥 Step 2: Downloading Excel...")
-download_response = requests.post(
-    'http://localhost:5000/api/download/excel',
-    json={'tempFile': temp_file, 'mode': 'ideb'},
-    stream=True
-)
+# Style definitions
+header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+header_font = Font(bold=True, color="FFFFFF", size=11)
+total_fill = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
+total_font = Font(bold=True, size=11)
+border_side = Side(style='thin', color='000000')
+border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
 
-if download_response.status_code != 200:
-    print(f"❌ Download failed: {download_response.text}")
-    exit(1)
+# Format header row
+for cell in ws[1]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    cell.border = border
 
-# Save Excel
-output_path = f'test_ideb_output_{datetime.now().strftime("%Y%m%d%H%M%S")}.xlsx'
-with open(output_path, 'wb') as f:
-    f.write(download_response.content)
+# Format number columns (Plafon, O/S, Angsuran) with thousand separator
+number_columns = ['B', 'D', 'I']  # Plafon, O/S, Angsuran
+for col in number_columns:
+    for row in range(2, ws.max_row + 1):
+        cell = ws[f'{col}{row}']
+        cell.number_format = '#,##0'  # Thousand separator, no decimals
+        cell.alignment = Alignment(horizontal='right')
+        cell.border = border
 
-print(f"✅ Excel downloaded: {output_path}")
+# Format other columns
+for row in range(2, ws.max_row + 1):
+    for col in ['A', 'C', 'E', 'F', 'G', 'H']:  # Text columns
+        cell = ws[f'{col}{row}']
+        cell.alignment = Alignment(horizontal='left' if col == 'A' else 'center')
+        cell.border = border
 
-# Step 3: Verify Excel content
-print(f"\n📊 Step 3: Verifying Excel content...")
-df = pd.read_excel(output_path, sheet_name='IDEB SLIK')
+# Add Total row
+total_row = ws.max_row + 1
+ws[f'A{total_row}'] = 'Total'
+ws[f'A{total_row}'].font = total_font
+ws[f'A{total_row}'].fill = total_fill
+ws[f'A{total_row}'].border = border
 
-print(f"   Rows: {len(df)}")
-print(f"   Columns: {list(df.columns)}")
+# Add SUM formulas for numeric columns
+ws[f'B{total_row}'] = f'=SUM(B2:B{total_row-1})'  # Plafon
+ws[f'D{total_row}'] = f'=SUM(D2:D{total_row-1})'  # O/S
+ws[f'I{total_row}'] = f'=SUM(I2:I{total_row-1})'  # Angsuran
 
-print(f"\n📅 Date Format Verification:")
-print(f"   First 3 credits:")
-for i in range(min(3, len(df))):
-    print(f"\n   {i+1}. {df.iloc[i]['Nama Bank']}")
-    print(f"      Tanggal Pencairan: {df.iloc[i]['Tanggal Pencairan']}")
-    print(f"      Tanggal Jatuh Tempo: {df.iloc[i]['Tanggal Jatuh Tempo']}")
-    
-    # Check if format is mm/dd/yyyy
-    tgl_pencairan = str(df.iloc[i]['Tanggal Pencairan'])
-    if '/' in tgl_pencairan:
-        parts = tgl_pencairan.split('/')
-        if len(parts) == 3:
-            print(f"      ✅ Format OK: mm/dd/yyyy")
-        else:
-            print(f"      ⚠ Format may be incorrect")
-    else:
-        print(f"      ⚠ Not in mm/dd/yyyy format")
+# Format total row cells
+for col in ['B', 'D', 'I']:
+    cell = ws[f'{col}{total_row}']
+    cell.font = total_font
+    cell.fill = total_fill
+    cell.number_format = '#,##0'
+    cell.alignment = Alignment(horizontal='right')
+    cell.border = border
 
-print(f"\n✅ Test completed! Excel file: {output_path}")
+# Empty cells in total row
+for col in ['C', 'E', 'F', 'G', 'H']:
+    cell = ws[f'{col}{total_row}']
+    cell.fill = total_fill
+    cell.border = border
+
+# Adjust column widths
+ws.column_dimensions['A'].width = 30  # Nama Bank
+ws.column_dimensions['B'].width = 18  # Plafon
+ws.column_dimensions['C'].width = 12  # Yield
+ws.column_dimensions['D'].width = 18  # O/S
+ws.column_dimensions['E'].width = 16  # Tanggal Pencairan
+ws.column_dimensions['F'].width = 18  # Tanggal Jatuh Tempo
+ws.column_dimensions['G'].width = 10  # Jk Waktu
+ws.column_dimensions['H'].width = 8   # Kol
+ws.column_dimensions['I'].width = 18  # Angsuran
+
+# Save
+wb.save(output_path)
+print(f"✅ Excel formatted and saved!")
+print(f"📂 Location: {os.path.abspath(output_path)}")
