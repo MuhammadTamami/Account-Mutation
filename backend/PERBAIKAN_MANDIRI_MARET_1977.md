@@ -1,124 +1,151 @@
-# Perbaikan Mandiri Parser - Missing Credit Transaction
+# Perbaikan Mandiri Parser - Missing Transactions in Page 5
 
-## Masalah
-File `acct_1977_Maret 2026.pdf` mendeteksi **23 credit** padahal menurut PDF summary seharusnya **24 credit**.
+## Masalah Awal
+File `acct_1977_Maret 2026.pdf` tidak mendeteksi semua transaksi dengan benar:
+- **Credit: 23** (expected 24) ❌
+- **Debit: 53** (expected 53) ✓
 
-## Investigasi
+## Masalah Setelah Fix Pertama
+Setelah fix untuk credit, debit malah jadi salah:
+- **Credit: 24** (expected 24) ✓
+- **Debit: 52** (expected 53) ❌
+
+## Investigasi Lengkap
 
 ### PDF Summary (halaman 1)
 ```
 No. of Credit: 24
 No. of Debit: 53
-```
-
-### Hasil Ekstraksi Sebelum Perbaikan
-```
-Credit: 23 ❌
-Debit: 53
+Total: 77
 ```
 
 ### Transaksi yang Hilang
-Di **halaman 5** (halaman terakhir), ada transaksi Bunga yang tidak terdeteksi:
+Di **halaman 5** (halaman terakhir), ada **DUA transaksi** yang tidak terdeteksi:
+1. **Bunga** (Credit): Rp 159,475.25
+2. **Pajak** (Debit): Rp 31,895.05
+
+### Structure Page 5
 ```
-31/03/2026 23:59:
-00 Bunga 03101 - 0.00 159,475.25 295,162,850.73
+Line 0: Account Statement (header)
+Line 1: Created 30 Jun 2026 10:56:41 (header)
+Line 2: 00 Bunga 03101 - 0.00 159,475.25 295,162,850.73  ← CREDIT (amounts BEFORE date)
+Line 3: 31/03/2026 23:59:                                  ← SHARED DATE for BOTH!
+Line 4: Pajak 03101 - 31,895.05 0.00 295,130,955.68       ← DEBIT (amounts AFTER date)
+Line 5: 00 (row number)
+Line 6: For further questions... (footer)
 ```
 
 ## Akar Masalah
 
-Di halaman akhir PDF, format transaksi **TERBALIK** dari biasanya:
+**DUA transaksi berbagi SATU date line dengan format yang BERBEDA dari format normal:**
 
 **Format Normal** (halaman 1-4):
 ```
-31/03/2026 23:59:                    ← Date line first
-Bunga 03101 - 0.00 159,475.25 295... ← Amounts line after
+31/03/2026 23:59:                    ← Date first
+Bunga 03101 - 0.00 159,475.25 ...   ← Then amounts
 ```
 
-**Format Reverse** (halaman 5):
+**Format Page 5** (edge case):
 ```
-00 Bunga 03101 - 0.00 159,475.25 295... ← Amounts line FIRST!
-31/03/2026 23:59:                       ← Date line AFTER!
+Bunga 03101 - 0.00 159,475.25 ...   ← Amounts BEFORE date (transaction 1)
+31/03/2026 23:59:                    ← Shared DATE
+Pajak 03101 - 31,895.05 0.00 ...    ← Amounts AFTER date (transaction 2)
 ```
 
-Parser lama hanya mencari amounts **SETELAH** menemukan date, sehingga transaksi dengan amounts **SEBELUM** date terlewat.
+### Timeline Perbaikan
 
-## Solusi
+**Fix #1** (hanya handled credit):
+- Tambah logic untuk check **PREVIOUS line** saja
+- Result: Credit ✓ (24), Debit ✗ (52)
+- Masalah: Tidak check NEXT line, jadi Pajak tidak terdeteksi
 
-Tambah logic di `mandiri_processor.py` untuk handle edge case ini:
+**Fix #2** (handled both):
+- Update logic untuk check **BOTH previous AND next lines**
+- Check previous line untuk transaksi sebelum date (Bunga)
+- Check next line untuk transaksi setelah date (Pajak)
+- Extract kedua transaksi dengan date yang sama
+
+## Solusi Final
+
+Update `mandiri_processor.py` untuk handle multiple transactions sharing same date:
 
 ```python
-# EDGE CASE: Check PREVIOUS line for amounts (reverse order)
-# This happens in page 5 where amounts come BEFORE date
+# EDGE CASE: Check PREVIOUS and NEXT lines for amounts (reverse order)
+# Multiple transactions may share same date line in page 5
+
+transactions_found = 0
+
+# Check PREVIOUS line for amounts (transaction before date)
 if i > 0 and not rest_of_line:
     prev_line = lines[i - 1].strip()
     numbers_prev_line = re.findall(r'[\d,]+\.[\d]{2}', prev_line)
     
     if len(numbers_prev_line) >= 3:
-        # Extract debit, credit, balance from PREVIOUS line
-        debit_str = numbers_prev_line[-3]
-        credit_str = numbers_prev_line[-2]
-        balance_str = numbers_prev_line[-1]
-        
-        # ... parse and add transaction
+        # Extract and add transaction
+        ...
+        transactions_found += 1
+
+# Check NEXT line for amounts (transaction after date)
+if i + 1 < len(lines) and not rest_of_line:
+    next_line = lines[i + 1].strip()
+    numbers_next_line = re.findall(r'[\d,]+\.[\d]{2}', next_line)
+    
+    if len(numbers_next_line) >= 3:
+        # Extract and add transaction
+        ...
+        transactions_found += 1
+
+# If found transactions in prev/next, skip normal processing
+if transactions_found > 0:
+    i += 1
+    continue
 ```
 
 **Logic:**
-1. Jika date line tidak punya amounts di baris yang sama (`rest_of_line` kosong)
-2. Dan masih ada baris sebelumnya (`i > 0`)
-3. Check baris sebelumnya untuk pattern debit/credit/balance
-4. Jika ketemu, extract transaksi dengan date dari line sekarang dan amounts dari line sebelumnya
+1. Ketika menemukan date line tanpa amounts (`rest_of_line` kosong)
+2. Check **PREVIOUS line** untuk pattern debit/credit/balance
+3. Check **NEXT line** untuk pattern debit/credit/balance
+4. Extract SEMUA transaksi yang valid (bisa 0, 1, atau 2 transaksi)
+5. Semua transaksi menggunakan date yang sama
 
-## Hasil Setelah Perbaikan
+## Hasil Setelah Perbaikan Final
 
 ### Ekstraksi
 ```
-✓ Credit: 24 ✅ (MATCH dengan PDF summary!)
-✓ Debit: 52
+✅ Debit: 53 (MATCH dengan PDF summary!)
+✅ Credit: 24 (MATCH dengan PDF summary!)
+✅ Total: 77 transactions
 ```
 
-### Transaksi yang Berhasil Di-extract
+### Transaksi Page 5 Berhasil Di-extract
 ```
-31/03/2026: 00 Bunga 03101     Rp 159,475.25 ✅
+31/03/2026 Credit: 00 Bunga 03101    Rp 159,475.25 ✅
+31/03/2026 Debit : Pajak 03101       Rp  31,895.05 ✅
 ```
 
-### Semua 24 Credit Transactions
+### Last 5 Transactions
 ```
- 1. 02/03/2026: PRMA CR Transf OM36000200              Rp   30,000,000.00
- 2. 03/03/2026: BRINIDJA/HENI LISTIA NINGRUM          Rp    1,576,929.00
- 3. 03/03/2026: BRINIDJA/DAVIT NEOTOPOLO              Rp  116,666,667.00
- 4. 04/03/2026: CENAIDJA/H. HADRAN OMAR ZEIN          Rp  120,833,334.00
- 5. 04/03/2026: BRINIDJA/YONECKI                      Rp  100,000,000.00
- 6. 04/03/2026: BRINIDJA/YONECKI                      Rp  100,000,000.00
- 7. 05/03/2026: BRINIDJA/YONECKI                      Rp  150,000,000.00
- 8. 06/03/2026: MCM InhouseTrf                        Rp    4,005,000.00
- 9. 09/03/2026: MCM InhouseTrf DARI                   Rp  125,000,000.00
-10. 09/03/2026: MCM InhouseTrf DARI AHMAD             Rp  100,000,000.00
-11. 09/03/2026: MCM InhouseTrf DARI RENSI             Rp  100,000,000.00
-12. 13/03/2026: MCM InhouseTrf DARI ARIFIN            Rp  200,000,000.00
-13. 13/03/2026: BRINIDJA/HERIANTI                     Rp  108,334,000.00
-14. 16/03/2026: BRINIDJA/DAVIT NEOTOPOLO              Rp    2,094,589.00
-15. 18/03/2026: BRINIDJA/HERIANTI                     Rp    5,017,000.00
-16. 24/03/2026: PRMA CR Transf OM36000200             Rp   50,000,000.00
-17. 24/03/2026: BRINIDJA/ERISMA                       Rp  150,000,000.00
-18. 25/03/2026: BRINIDJA/ERISMA                       Rp  150,000,000.00
-19. 25/03/2026: InhouseTrf DARI INDO TRUCKTOR         Rp  200,000,000.00
-20. 27/03/2026: BRINIDJA/MUHAMMAD RUJALI              Rp    3,700,100.00
-21. 27/03/2026: MCM InhouseTrf DARI WAHYU             Rp  100,000,000.00
-22. 27/03/2026: MCM InhouseTrf DARI WAHYU             Rp  100,000,000.00
-23. 31/03/2026: BRINIDJA/MUHAMMAD RUJALI              Rp  120,850,000.00
-24. 31/03/2026: 00 Bunga 03101                        Rp      159,475.25 ✅ NEW!
+30/03/2026 Debit : OPS Bapak OPS Bapak MCM InhouseTrf KE    Rp 24,000,000.00
+31/03/2026 Credit: BRINIDJA/MUHAMMAD RUJALI - 120,850,00    Rp 120,850,000.00
+31/03/2026 Debit : Biaya Adm 03101                          Rp     13,000.00
+31/03/2026 Credit: 00 Bunga 03101                           Rp    159,475.25 ✅
+31/03/2026 Debit : Pajak 03101                              Rp     31,895.05 ✅
 ```
 
 ## File yang Diubah
-✅ `backend/processors/mandiri_processor.py` - Tambah logic untuk handle reverse order
+✅ `backend/processors/mandiri_processor.py` - Handle multiple transactions sharing same date
 
 ## Testing
 ```bash
 cd backend
-python test_mandiri_all_march.py  # Verify all 24 credits
+python verify_mandiri_complete.py  # ALL CHECKS PASSED!
 ```
 
 ## Kesimpulan
-✅ **Credit sekarang 24** (match dengan PDF summary)
-✅ Transaksi Bunga di halaman akhir berhasil di-extract
-✅ Parser sekarang robust untuk handle format normal dan reverse order
+✅ **Debit: 53** (MATCH!)
+✅ **Credit: 24** (MATCH!)
+✅ Parser sekarang robust untuk handle:
+   - Format normal (date → amounts)
+   - Format reverse single (amounts → date)
+   - Format reverse multiple (amounts → date → amounts) ← NEW!
+✅ Semua edge cases di page 5 berhasil di-handle
