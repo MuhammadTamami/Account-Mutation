@@ -276,8 +276,15 @@ def process_mandiri_pdf(filepath, pdf_password=''):
                             i += 1
                             continue
                         
-                        # EDGE CASE: Check PREVIOUS line for amounts (reverse order)
-                        # This happens in page 5 where: "00 Bunga 03101 - 0.00 159,475.25 295,162,850.73" comes BEFORE "31/03/2026 23:59:"
+                        # EDGE CASE: Check PREVIOUS and NEXT lines for amounts (reverse order)
+                        # This happens in page 5 where multiple transactions share same date:
+                        # Line N-1: "00 Bunga 03101 - 0.00 159,475.25 ..." (CREDIT - before date)
+                        # Line N:   "31/03/2026 23:59:"                    (SHARED DATE)
+                        # Line N+1: "Pajak 03101 - 31,895.05 0.00 ..."    (DEBIT - after date)
+                        
+                        transactions_found = 0
+                        
+                        # Check PREVIOUS line for amounts
                         if i > 0 and not rest_of_line:
                             prev_line = lines[i - 1].strip()
                             numbers_prev_line = re.findall(r'[\d,]+\.[\d]{2}', prev_line)
@@ -304,22 +311,69 @@ def process_mandiri_pdf(filepath, pdf_password=''):
                                     transaction_type = 'Debit'
                                     amount = debit
                                 else:
-                                    i += 1
-                                    continue
+                                    # Skip if both debit and credit are non-zero
+                                    pass
                                 
-                                output_data.append({
-                                    'DateTime': datetime_obj,
-                                    'OriginalIndex': len(output_data),
-                                    'Date': date,
-                                    'Reference': reference,
-                                    'Description': desc,
-                                    'Type': transaction_type,
-                                    'Amount': format_indonesian_number(amount),
-                                    'Balance': format_indonesian_number(balance)
-                                })
+                                if (credit > 0 and debit == 0) or (debit > 0 and credit == 0):
+                                    output_data.append({
+                                        'DateTime': datetime_obj,
+                                        'OriginalIndex': len(output_data),
+                                        'Date': date,
+                                        'Reference': reference,
+                                        'Description': desc,
+                                        'Type': transaction_type,
+                                        'Amount': format_indonesian_number(amount),
+                                        'Balance': format_indonesian_number(balance)
+                                    })
+                                    transactions_found += 1
+                        
+                        # Check NEXT line for amounts (may have another transaction sharing same date)
+                        if i + 1 < len(lines) and not rest_of_line:
+                            next_line = lines[i + 1].strip()
+                            numbers_next_line = re.findall(r'[\d,]+\.[\d]{2}', next_line)
+                            
+                            if len(numbers_next_line) >= 3:
+                                debit_str = numbers_next_line[-3]
+                                credit_str = numbers_next_line[-2]
+                                balance_str = numbers_next_line[-1]
                                 
-                                i += 1
-                                continue
+                                debit = clean_amount(debit_str)
+                                credit = clean_amount(credit_str)
+                                balance = clean_amount(balance_str)
+                                
+                                desc = next_line
+                                for num in numbers_next_line:
+                                    desc = desc.replace(num, '')
+                                desc = desc.strip(' -')
+                                desc = ' '.join(desc.split())
+                                
+                                if credit > 0 and debit == 0:
+                                    transaction_type = 'Credit'
+                                    amount = credit
+                                elif debit > 0 and credit == 0:
+                                    transaction_type = 'Debit'
+                                    amount = debit
+                                else:
+                                    # Skip if both debit and credit are non-zero
+                                    pass
+                                
+                                if (credit > 0 and debit == 0) or (debit > 0 and credit == 0):
+                                    output_data.append({
+                                        'DateTime': datetime_obj,
+                                        'OriginalIndex': len(output_data),
+                                        'Date': date,
+                                        'Reference': reference,
+                                        'Description': desc,
+                                        'Type': transaction_type,
+                                        'Amount': format_indonesian_number(amount),
+                                        'Balance': format_indonesian_number(balance)
+                                    })
+                                    transactions_found += 1
+                        
+                        # If we found transactions in prev/next lines, skip normal processing
+                        if transactions_found > 0:
+                            i += 1
+                            continue
                         
                         # Amounts on separate lines (normal order: date first, then amounts)
                         desc_from_date_line = rest_of_line
