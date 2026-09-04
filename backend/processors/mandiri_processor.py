@@ -12,44 +12,65 @@ def clean_amount(amount_str):
     if not amount_str or amount_str == '-':
         return 0.0
     
-    amount_str = str(amount_str).strip().replace('Rp', '').strip()
+    amount_str = str(amount_str).strip().replace('Rp', '').replace(' ', '').strip()
+    
+    # Handle different formats:
+    # 1. Indonesian: 1.234.567,89 (dots for thousands, comma for decimal)
+    # 2. International: 1,234,567.89 (commas for thousands, dot for decimal)
+    # 3. Mixed/Raw: 200.000.000.00 (dots everywhere - need to detect decimal position)
     
     if ',' in amount_str and '.' in amount_str:
+        # Both separators present
         last_comma_pos = amount_str.rfind(',')
         last_dot_pos = amount_str.rfind('.')
         
         if last_dot_pos > last_comma_pos:
+            # Format: 1,234,567.89 (International)
             amount_str = amount_str.replace(',', '')
         else:
+            # Format: 1.234.567,89 (Indonesian)
             amount_str = amount_str.replace('.', '').replace(',', '.')
     elif ',' in amount_str:
+        # Only comma present
         last_comma_pos = amount_str.rfind(',')
-        if len(amount_str) - last_comma_pos <= 3:
+        decimal_part_length = len(amount_str) - last_comma_pos - 1
+        
+        if decimal_part_length == 2:
+            # Format: 1234567,89 or 1.234.567,89 (Indonesian decimal)
             amount_str = amount_str.replace(',', '.')
         else:
+            # Format: 1,234,567 (thousand separator)
             amount_str = amount_str.replace(',', '')
     elif '.' in amount_str:
+        # Only dots present - need to determine if last dot is decimal or thousand separator
         last_dot_pos = amount_str.rfind('.')
-        if len(amount_str) - last_dot_pos > 3:
+        decimal_part_length = len(amount_str) - last_dot_pos - 1
+        
+        if decimal_part_length == 2:
+            # Format: 200.000.000.00 - last dot is decimal separator
+            # Remove all dots except the last one
+            amount_str = amount_str[:last_dot_pos].replace('.', '') + '.' + amount_str[last_dot_pos+1:]
+        elif decimal_part_length > 3:
+            # Format: 123456789.123456 (not a currency, keep as is)
+            pass
+        else:
+            # Format: 1.234.567 (all are thousand separators, no decimal)
             amount_str = amount_str.replace('.', '')
     
     try:
         return float(amount_str)
-    except:
+    except Exception as e:
+        print(f"⚠ Failed to parse amount '{amount_str}': {e}")
         return 0.0
 
 def format_indonesian_number(value):
-    """Format number as Indonesian format"""
+    """Format number as International format: 18,000,000.00 (comma for thousands, dot for decimal)"""
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return "0.00"
     
-    formatted = f"{value:.2f}"
-    parts = formatted.split('.')
-    integer_part = parts[0]
-    decimal_part = parts[1]
-    
-    integer_with_sep = f"{int(integer_part):,}"
-    return f"{integer_with_sep},{decimal_part}"
+    # Use standard US locale format
+    formatted = f"{value:,.2f}"
+    return formatted
 
 def process_mandiri_pdf(filepath, pdf_password=''):
     """
@@ -255,7 +276,52 @@ def process_mandiri_pdf(filepath, pdf_password=''):
                             i += 1
                             continue
                         
-                        # Amounts on separate lines
+                        # EDGE CASE: Check PREVIOUS line for amounts (reverse order)
+                        # This happens in page 5 where: "00 Bunga 03101 - 0.00 159,475.25 295,162,850.73" comes BEFORE "31/03/2026 23:59:"
+                        if i > 0 and not rest_of_line:
+                            prev_line = lines[i - 1].strip()
+                            numbers_prev_line = re.findall(r'[\d,]+\.[\d]{2}', prev_line)
+                            
+                            if len(numbers_prev_line) >= 3:
+                                debit_str = numbers_prev_line[-3]
+                                credit_str = numbers_prev_line[-2]
+                                balance_str = numbers_prev_line[-1]
+                                
+                                debit = clean_amount(debit_str)
+                                credit = clean_amount(credit_str)
+                                balance = clean_amount(balance_str)
+                                
+                                desc = prev_line
+                                for num in numbers_prev_line:
+                                    desc = desc.replace(num, '')
+                                desc = desc.strip(' -')
+                                desc = ' '.join(desc.split())
+                                
+                                if credit > 0 and debit == 0:
+                                    transaction_type = 'Credit'
+                                    amount = credit
+                                elif debit > 0 and credit == 0:
+                                    transaction_type = 'Debit'
+                                    amount = debit
+                                else:
+                                    i += 1
+                                    continue
+                                
+                                output_data.append({
+                                    'DateTime': datetime_obj,
+                                    'OriginalIndex': len(output_data),
+                                    'Date': date,
+                                    'Reference': reference,
+                                    'Description': desc,
+                                    'Type': transaction_type,
+                                    'Amount': format_indonesian_number(amount),
+                                    'Balance': format_indonesian_number(balance)
+                                })
+                                
+                                i += 1
+                                continue
+                        
+                        # Amounts on separate lines (normal order: date first, then amounts)
                         desc_from_date_line = rest_of_line
                         description_parts = [desc_from_date_line] if desc_from_date_line else []
                         found_transaction = False
