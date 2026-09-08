@@ -567,6 +567,48 @@ body {
   margin-right: 8px;
 }
 
+/* On Going Section */
+.changelog-section.ongoing-section {
+  background: linear-gradient(135deg, rgba(255, 165, 0, 0.05), rgba(255, 215, 0, 0.03));
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 165, 0, 0.3);
+}
+
+.badge-ongoing {
+  background: linear-gradient(135deg, #ff9500, #ffb700);
+  color: #000;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+}
+
+.feature-item-mini.ongoing {
+  background: rgba(255, 165, 0, 0.08);
+  border-left-color: #ff9500;
+  border-left-width: 3px;
+}
+
+.feature-item-mini.ongoing strong {
+  color: #ffb700;
+}
+
+.ongoing-note {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(255, 165, 0, 0.05);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.ongoing-note small {
+  color: rgba(255, 200, 100, 0.8);
+  font-size: 0.7rem;
+}
+
 /* Info & Specs Section (Section 4) */
 .info-specs-section {
   background: rgba(20, 20, 20, 0.4);
@@ -675,6 +717,20 @@ body {
   font-weight: 600;
   margin: 5px 0;
   letter-spacing: 0.5px;
+}
+
+.footer-bot-status {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  margin: 5px 0;
+}
+
+.footer-bot-status .status-wip {
+  color: #ff9500;
+  font-weight: 600;
+  background: rgba(255, 149, 0, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .footer-tagline {

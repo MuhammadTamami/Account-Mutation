@@ -478,6 +478,23 @@ function App() {
                   </div>
                 </div>
 
+                <div className="changelog-section ongoing-section">
+                  <h4 className="changelog-version">
+                    🚧 On Going Development
+                    <span className="badge-ongoing">WIP</span>
+                  </h4>
+                  <div className="feature-item-mini ongoing">
+                    <span className="feature-icon-mini">🤖</span>
+                    <div>
+                      <strong>Bot Telegram Integration</strong>
+                      <p>Upload mutrek langsung dari Telegram, auto-processing, download hasil via bot</p>
+                    </div>
+                  </div>
+                  <div className="ongoing-note">
+                    <small>💡 <em>Coming soon! Bot akan memudahkan processing tanpa perlu buka web</em></small>
+                  </div>
+                </div>
+
                 <div className="changelog-section">
                   <h4 className="changelog-version">Version 2.0.0</h4>
                   <div className="features-list">
@@ -596,6 +613,7 @@ function App() {
             <div className="footer-info">
               <p>© 2026 Tama. All rights reserved.</p>
               <p className="footer-version">Version 2.1.0 - Balance-Based Detection</p>
+              <p className="footer-bot-status">🤖 Bot Telegram: <span className="status-wip">Coming Soon</span></p>
               <p className="footer-tagline">Built with 💚 for better financial tracking</p>
             </div>
           </div>
