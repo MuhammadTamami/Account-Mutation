@@ -526,6 +526,46 @@ body {
   color: rgba(255, 255, 255, 0.6);
   line-height: 1.4;
 }
+/* Changelog Section */
+.changelog-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(180, 255, 0, 0.1);
+}
+
+.changelog-section:last-child {
+  border-bottom: none;
+}
+
+.changelog-version {
+  color: #b4ff00;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.feature-item-mini.highlight {
+  background: linear-gradient(135deg, rgba(180, 255, 0, 0.1), rgba(0, 255, 180, 0.05));
+  border-left-color: #b4ff00;
+  border-left-width: 3px;
+}
+
+.feature-item-mini.highlight strong {
+  color: #b4ff00;
+  font-size: 0.9rem;
+}
+
+.badge-new {
+  background: linear-gradient(135deg, #b4ff00, #00ffb4);
+  color: #000;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-right: 8px;
+}
 
 /* Info & Specs Section (Section 4) */
 .info-specs-section {
@@ -627,6 +667,14 @@ body {
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.6);
   margin-bottom: 5px;
+}
+
+.footer-version {
+  color: #b4ff00;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 5px 0;
+  letter-spacing: 0.5px;
 }
 
 .footer-tagline {

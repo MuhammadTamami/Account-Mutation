@@ -26,17 +26,13 @@ def clean_amount(amount_str):
         return 0.0
 
 def format_indonesian_number(value):
-    """Format number as Indonesian format"""
+    """Format number as International format: 18,000,000.00"""
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return "0.00"
     
-    formatted = f"{value:.2f}"
-    parts = formatted.split('.')
-    integer_part = parts[0]
-    decimal_part = parts[1]
-    
-    integer_with_sep = f"{int(integer_part):,}"
-    return f"{integer_with_sep},{decimal_part}"
+    # Use standard US locale format (comma for thousands, dot for decimal)
+    formatted = f"{value:,.2f}"
+    return formatted
 
 def parse_bri_date(date_str):
     """Parse BRI date formats"""
@@ -210,11 +206,13 @@ def process_bri_pdf(filepath):
                         i += 1
                         continue
                     
-                    if any(keyword in line.upper() for keyword in [
-                        'LAPORAN TRANSAKSI', 'STATEMENT OF', 'HALAMAN', 'PAGE', 
-                        'TANGGAL TRANSAKSI', 'TRANSACTION DATE', 'TRANSACTION DESCRIPTION',
-                        'URAIAN TRANSAKSI', 'DEBET', 'KREDIT', 'SALDO', 'DEBIT', 'CREDIT', 'BALANCE'
-                    ]):
+                    # Skip header lines (but be careful not to skip transactions)
+                    # Only skip if line starts with these keywords or is exactly these keywords
+                    if (line.upper().startswith(('LAPORAN TRANSAKSI', 'STATEMENT OF', 'HALAMAN', 'PAGE')) or
+                        line.upper() in ['TANGGAL TRANSAKSI', 'TRANSACTION DATE', 'TRANSACTION DESCRIPTION',
+                                        'URAIAN TRANSAKSI', 'TELLER', 'USER ID'] or
+                        # Header row with columns - check if it's EXACTLY the header row
+                        (line.upper().startswith('TANGGAL') and 'DEBET' in line.upper() and 'KREDIT' in line.upper())):
                         i += 1
                         continue
                     
@@ -243,8 +241,10 @@ def process_bri_pdf(filepath):
                             rest_of_line = line[datetime_match.end():].strip()
                             
                             # Look for amounts (last 3 numbers in the line)
-                            # BRI uses dot for thousands, comma for decimals: 590,040.00 or 171,418,357.81
-                            # Also handle cases with only 2 numbers (debit/credit and balance)
+                            # BRI uses English format: 50,000.00 (comma=thousands, dot=decimal)
+                            # Format can be:
+                            # 1. Standard: Debit Credit Balance (3 numbers)
+                            # 2. Alternative: Amount Balance (2 numbers)
                             numbers = re.findall(r'[\d,]+\.[\d]{2}', rest_of_line)
                             
                             if len(numbers) >= 3:
@@ -258,12 +258,25 @@ def process_bri_pdf(filepath):
                                 for num in numbers[-3:]:
                                     desc_line = desc_line.replace(num, '', 1)
                                 
+                                # Clean up extra spaces
+                                desc_line = ' '.join(desc_line.split())
+                                
                                 # Extract teller ID (usually alphanumeric code like BRIMTXDT, 8888673, 0371854)
                                 # Teller ID is usually right before the amounts
+                                # BUT: Some formats don't have teller ID (e.g., "Minimum Balance Fee")
+                                # Check if last word looks like a teller ID (alphanumeric, no spaces)
                                 desc_parts = desc_line.strip().rsplit(None, 1)
                                 if len(desc_parts) == 2:
-                                    description = desc_parts[0].strip()
-                                    teller = desc_parts[1].strip()
+                                    potential_teller = desc_parts[1].strip()
+                                    # Check if it looks like a teller ID (contains digits or all uppercase)
+                                    if (any(c.isdigit() for c in potential_teller) or 
+                                        (potential_teller.isupper() and len(potential_teller) > 3)):
+                                        description = desc_parts[0].strip()
+                                        teller = potential_teller
+                                    else:
+                                        # Last word is not a teller ID, keep whole description
+                                        description = desc_line.strip()
+                                        teller = '-'
                                 else:
                                     description = desc_line.strip()
                                     teller = '-'
@@ -300,24 +313,76 @@ def process_bri_pdf(filepath):
                                 })
                                 
                             elif len(numbers) == 2:
-                                # Sometimes balance might be on next line, or it's a special format
-                                # Try to get balance from next line
-                                balance_str = numbers[-1]
-                                amount_str = numbers[-2]
+                                # Format with 2 numbers: Amount and Balance
+                                # Need to determine if it's debit or credit by comparing with previous balance
+                                amount_str = numbers[0]
+                                balance_str = numbers[1]
                                 
-                                # Determine if it's debit or credit based on description keywords
-                                desc_lower = rest_of_line.lower()
-                                
-                                # Default: treat as credit
-                                credit = clean_amount(amount_str)
-                                debit = 0
-                                
-                                # Check if it's a debit transaction
-                                if any(keyword in desc_lower for keyword in ['pembayaran', 'biaya', 'tarif', 'transfer ke', 'bayar']):
-                                    debit = clean_amount(amount_str)
-                                    credit = 0
-                                
+                                amount = clean_amount(amount_str)
                                 balance = clean_amount(balance_str)
+                                
+                                # Determine debit/credit by balance change
+                                # If we have previous balance, compare
+                                prev_balance = None
+                                if output_data and len(output_data) > 0:
+                                    prev_balance = clean_amount(output_data[-1]['Balance'])
+                                
+                                # Default values
+                                debit = 0
+                                credit = 0
+                                
+                                if prev_balance is not None:
+                                    # Compare balance change
+                                    balance_diff = balance - prev_balance
+                                    
+                                    if balance_diff > 0:
+                                        # Balance increased = Credit
+                                        credit = amount
+                                        debit = 0
+                                    elif balance_diff < 0:
+                                        # Balance decreased = Debit
+                                        debit = amount
+                                        credit = 0
+                                    else:
+                                        # No change - skip this transaction
+                                        i += 1
+                                        continue
+                                else:
+                                    # First transaction - use keyword detection as fallback
+                                    desc_lower = rest_of_line.lower()
+                                    
+                                    # Keywords that indicate DEBIT (money out)
+                                    debit_keywords = [
+                                        'pembayaran', 'biaya', 'tarif', 'transfer ke', 'bayar',
+                                        'fee', 'charge', 'deduction', 'potong', 'withdrawal',
+                                        'tarik', 'keluar', 'purchase', 'belanja', 'monthly',
+                                        'admin', 'maintenance', 'penalty', 'denda'
+                                    ]
+                                    
+                                    # Keywords that indicate CREDIT (money in)
+                                    credit_keywords = [
+                                        'transfer dari', 'setoran', 'deposit', 'bunga',
+                                        'interest', 'masuk', 'incoming', 'received',
+                                        'kredit', 'credit', 'reversal', 'refund'
+                                    ]
+                                    
+                                    # Check for debit keywords first (more specific)
+                                    if any(keyword in desc_lower for keyword in debit_keywords):
+                                        debit = amount
+                                        credit = 0
+                                    # Then check for credit keywords
+                                    elif any(keyword in desc_lower for keyword in credit_keywords):
+                                        credit = amount
+                                        debit = 0
+                                    else:
+                                        # Default: if amount looks small (< 100k), likely a fee = debit
+                                        # Otherwise, assume credit
+                                        if amount < 100000:
+                                            debit = amount
+                                            credit = 0
+                                        else:
+                                            credit = amount
+                                            debit = 0
                                 
                                 # Extract description and teller
                                 desc_line = rest_of_line

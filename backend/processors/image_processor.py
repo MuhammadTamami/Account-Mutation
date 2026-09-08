@@ -89,17 +89,13 @@ def clean_amount(amount_str):
         return 0.0
 
 def format_indonesian_number(value):
-    """Format number as Indonesian format: 1,499,754,00"""
+    """Format number as International format: 18,000,000.00"""
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return "0.00"
     
-    formatted = f"{value:.2f}"
-    parts = formatted.split('.')
-    integer_part = parts[0]
-    decimal_part = parts[1]
-    
-    integer_with_sep = f"{int(integer_part):,}"
-    return f"{integer_with_sep},{decimal_part}"
+    # Use standard US locale format (comma for thousands, dot for decimal)
+    formatted = f"{value:,.2f}"
+    return formatted
 
 def extract_text_from_image(filepath):
     """Extract text from image using OCR"""

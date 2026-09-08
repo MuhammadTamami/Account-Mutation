@@ -61,21 +61,13 @@ def clean_amount(amount_str):
         return 0.0
 
 def format_indonesian_number(value):
-    """Format number as Indonesian format: 1,499,754,00 (comma as decimal separator)"""
+    """Format number as International format: 18,000,000.00"""
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return "0.00"
     
-    # Split into integer and decimal parts
-    formatted = f"{value:.2f}"
-    parts = formatted.split('.')
-    integer_part = parts[0]
-    decimal_part = parts[1]
-    
-    # Add thousand separators (keep as comma for thousands)
-    integer_with_sep = f"{int(integer_part):,}"
-    
-    # Replace dot with comma for decimal separator
-    return f"{integer_with_sep},{decimal_part}"
+    # Use standard US locale format (comma for thousands, dot for decimal)
+    formatted = f"{value:,.2f}"
+    return formatted
 
 def parse_date_time(date_str):
     """Parse BSI date format: 2026-03-01 / 05:12:01
@@ -224,15 +216,36 @@ def process_bsi_pdf(filepath):
                                     amount = clean_amount(amount_str)
                                     balance = clean_amount(balance_str)
                                     
-                                    # Determine type (check if D/K in line or check balance movement)
-                                    if 'DEBIT' in line.upper() or 'DB' in line.upper():
-                                        transaction_type = 'Debit'
-                                    elif 'CREDIT' in line.upper() or 'CR' in line.upper() or 'KREDIT' in line.upper():
-                                        transaction_type = 'Credit'
-                                    else:
-                                        # Default: assume Credit if positive
-                                        transaction_type = 'Credit' if amount > 0 else 'Debit'
                                     
+                                    # PRIMARY: Balance-based detection (compare with previous transaction)
+                                    if output_data and len(output_data) > 0:
+                                        # Get previous balance
+                                        prev_balance_str = output_data[-1]['Balance']
+                                        prev_balance = float(prev_balance_str.replace(',', ''))
+                                        
+                                        # Compare: if balance increased = Credit, if decreased = Debit
+                                        balance_diff = balance - prev_balance
+                                        
+                                        if balance_diff > 0:
+                                            transaction_type = 'Credit'
+                                        elif balance_diff < 0:
+                                            transaction_type = 'Debit'
+                                        else:
+                                            # Balance unchanged, skip
+                                            continue
+                                    else:
+                                        # FALLBACK: For first transaction, use enhanced keyword detection
+                                        line_upper = line.upper()
+                                        
+                                        # Credit indicators
+                                        if any(kw in line_upper for kw in ['CREDIT', 'CR', 'KREDIT', 'INCOMING', 'TRANSFER IN', 'DEPOSIT']):
+                                            transaction_type = 'Credit'
+                                        # Debit indicators
+                                        elif any(kw in line_upper for kw in ['DEBIT', 'DB', 'WITHDRAWAL', 'TRANSFER OUT', 'FEE', 'BIAYA', 'ADMIN']):
+                                            transaction_type = 'Debit'
+                                        else:
+                                            # Last resort: amount sign
+                                            transaction_type = 'Credit' if amount > 0 else 'Debit'
                                     output_data.append({
                                         'Date': date,
                                         'Reference': '-',

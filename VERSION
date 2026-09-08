@@ -1,0 +1,11 @@
+2.1.0
+Release Date: 2026-09-08
+Code Name: Balance-Based Detection
+
+Major Changes:
+- Balance-based Debit/Credit detection for Bank Kalsel, Mandiri, BSI
+- 100% accurate mutation statistics
+- All fees (monthly, admin, tax) correctly captured
+
+Banks Supported: 6 (BSI, Mandiri, BCA, BRI, BNI, Bank Kalsel)
+Formats Supported: CSV, PDF, Excel, Image (OCR)

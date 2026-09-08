@@ -8,16 +8,13 @@ import re
 
 
 def clean_amount(amount_str):
-    """Convert amount string to float (handles both Indonesian and English formats)"""
+    """Convert Indonesian number format to float"""
     if pd.isna(amount_str) or amount_str == '' or amount_str == '-':
         return 0.0
     
     amount_str = str(amount_str).strip()
     amount_str = amount_str.replace('Rp', '').replace(' ', '').strip()
-    
-    # BCA uses English format: 1,234.56 (comma=thousands, period=decimal)
-    # Remove thousands separator (comma) and keep decimal point
-    amount_str = amount_str.replace(',', '')
+    amount_str = amount_str.replace('.', '').replace(',', '.')
     
     try:
         return float(amount_str)
@@ -125,27 +122,13 @@ def process_bca_pdf(filepath):
         # Get year from period
         year = None
         if 'period' in account_info:
-            # Try to extract 4-digit year
             period_match = re.search(r'(\d{4})', account_info['period'])
             if period_match:
                 year = period_match.group(1)
-            else:
-                # Try month name format: "APRIL 2026" or "April 2026"
-                period_upper = account_info['period'].upper()
-                month_year_match = re.search(r'([A-Z]+)\s*(\d{4})', period_upper)
-                if month_year_match:
-                    year = month_year_match.group(2)
         
         if not year:
-            # Try to extract year from filename as fallback
-            filename = filepath.lower()
-            year_from_file = re.search(r'20\d{2}', filename)
-            if year_from_file:
-                year = year_from_file.group(0)
-                print(f"WARNING: Using year from filename: {year}")
-            else:
-                print("WARNING: Could not extract year from period or filename")
-                return pd.DataFrame()
+            print("WARNING: Could not extract year from period")
+            return pd.DataFrame()
         
         # Process all pages for transactions
         for page_num in range(len(doc)):
@@ -186,9 +169,8 @@ def process_bca_pdf(filepath):
                         while j < min(i + 30, len(lines)):
                             next_line = lines[j].strip()
                             
-                            # Stop if hit another date (but don't consume it)
+                            # Stop if hit another date
                             if re.match(r'^\d{2}/\d{2}$', next_line):
-                                # Don't increment j, let outer loop process this date
                                 break
                             
                             if not next_line:
@@ -207,39 +189,23 @@ def process_bca_pdf(filepath):
                                 continue
                             
                             # Check for MUTASI (amount with or without " DB")
-                            # Pattern: "1,234.56" or "1,234.56 DB" or "123.45" or "123.45 DB"
                             mutasi_match = re.match(r'^([\d,]+\.\d{2})(\s+DB)?$', next_line)
                             
-                            # Accept if:
-                            # 1. Has comma (e.g., "1,234.56")
-                            # 2. OR amount < 1000 (e.g., "123.45")
                             if mutasi_match:
-                                amount_str = mutasi_match.group(1)
-                                has_comma = ',' in amount_str
-                                is_small = len(amount_str.replace('.', '')) <= 6  # e.g., "999.99" = 5 digits
+                                amount = clean_amount(mutasi_match.group(1))
+                                has_db = mutasi_match.group(2) is not None
                                 
-                                if has_comma or is_small:
-                                    amount = clean_amount(amount_str)
-                                    has_db = mutasi_match.group(2) is not None
-                                    
-                                    # Type: " DB" = Debit, no " DB" = Credit
-                                    transaction_type = 'Debit' if has_db else 'Credit'
-                                    found_mutasi = True
-                                    
-                                    # Look for SALDO in next line
-                                    if j + 1 < len(lines):
-                                        saldo_line = lines[j + 1].strip()
-                                        # Check if it's balance (amount without DB, and not a date)
-                                        if re.match(r'^[\d,]+\.\d{2}$', saldo_line) and not re.match(r'^\d{2}/\d{2}$', lines[j + 1].strip()):
-                                            balance = clean_amount(saldo_line)
-                                            j += 1  # Consume balance line
-                                    
-                                    j += 1  # Move past amount line
-                                    break
-                                else:
-                                    # This is description (e.g., unformatted amount without comma)
-                                    if not next_line.startswith(':') and not (next_line.isdigit() and len(next_line) > 4):
-                                        description_parts.append(next_line)
+                                # Type: " DB" = Debit, no " DB" = Credit
+                                transaction_type = 'Debit' if has_db else 'Credit'
+                                found_mutasi = True
+                                
+                                # Look for SALDO in next line
+                                if j + 1 < len(lines):
+                                    saldo_line = lines[j + 1].strip()
+                                    if re.match(r'^[\d,]+\.\d{2}$', saldo_line):
+                                        balance = clean_amount(saldo_line)
+                                
+                                break
                             else:
                                 # Description line
                                 if not next_line.startswith(':') and not (next_line.isdigit() and len(next_line) > 4):
@@ -252,22 +218,16 @@ def process_bca_pdf(filepath):
                             description = ' '.join(description_parts).strip()
                             description = ' '.join(description.split())
                             
-                            # Skip SALDO AWAL (opening balance, not a transaction)
-                            if 'SALDO AWAL' in description.upper():
-                                # This is opening balance, skip it
-                                pass
-                            else:
-                                output_data.append({
-                                    'Date': date,
-                                    'Reference': branch if branch else '-',
-                                    'Description': description,
-                                    'Type': transaction_type,
-                                    'Amount': format_indonesian_number(amount),
-                                    'Balance': format_indonesian_number(balance) if balance > 0 else '0.00'
-                                })
+                            output_data.append({
+                                'Date': date,
+                                'Reference': branch if branch else '-',
+                                'Description': description,
+                                'Type': transaction_type,
+                                'Amount': format_indonesian_number(amount),
+                                'Balance': format_indonesian_number(balance) if balance > 0 else '0.00'
+                            })
                         
-                        # Move to where we stopped, but don't skip the date
-                        i = j if found_mutasi else i + 1
+                        i = j
                     
                     except Exception as e:
                         print(f"WARNING: Error line {i} page {page_num + 1}: {e}")
@@ -282,15 +242,9 @@ def process_bca_pdf(filepath):
         if len(output_data) == 0:
             return pd.DataFrame()
         
-        # Create DataFrame with sequence number to preserve original order
-        for idx, item in enumerate(output_data):
-            item['_sequence'] = idx
-        
+        # Create DataFrame
         df = pd.DataFrame(output_data)
-        
-        # Sort by Date first, then by original sequence to maintain PDF order
-        df = df.sort_values(['Date', '_sequence']).reset_index(drop=True)
-        df = df.drop(columns=['_sequence'])
+        df = df.sort_values('Date').reset_index(drop=True)
         
         # Attach metadata
         if account_info:

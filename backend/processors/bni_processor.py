@@ -24,17 +24,13 @@ def clean_amount(amount_str):
         return 0.0
 
 def format_indonesian_number(value):
-    """Format number as Indonesian format"""
+    """Format number as International format: 18,000,000.00"""
     if pd.isna(value) or value == 0:
-        return "0,00"
+        return "0.00"
     
-    formatted = f"{value:.2f}"
-    parts = formatted.split('.')
-    integer_part = parts[0]
-    decimal_part = parts[1]
-    
-    integer_with_sep = f"{int(integer_part):,}"
-    return f"{integer_with_sep},{decimal_part}"
+    # Use standard US locale format (comma for thousands, dot for decimal)
+    formatted = f"{value:,.2f}"
+    return formatted
 
 def parse_bni_date(date_str):
     """Parse BNI date formats"""
@@ -350,10 +346,13 @@ def process_bni_pdf(filepath):
         if len(output_data) == 0:
             return pd.DataFrame()
         
-        # Create DataFrame
+        # Create DataFrame with sequence number to preserve original order
+        for idx, item in enumerate(output_data):
+            item['_sequence'] = idx
+        
         df = pd.DataFrame(output_data)
-        df = df.sort_values('DateTime').reset_index(drop=True)
-        df = df.drop(columns=['DateTime'])
+        df = df.sort_values(['DateTime', '_sequence']).reset_index(drop=True)
+        df = df.drop(columns=['DateTime', '_sequence'])
         
         # Attach metadata
         if account_info:

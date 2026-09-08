@@ -364,8 +364,16 @@ def process_ideb_pdf(filepath):
             print(f"⚠ No credits found with Baki Debet > 0")
             return pd.DataFrame()
         
-        # Create DataFrame
+        # Create DataFrame with sequence number to preserve original order
+        for idx, item in enumerate(output_data):
+            item['_sequence'] = idx
+        
         df = pd.DataFrame(output_data)
+        
+        # Sort by Date and sequence to ensure consistent order
+        if 'Date' in df.columns and not df.empty:
+            df = df.sort_values(['Date', '_sequence']).reset_index(drop=True)
+            df = df.drop(columns=['_sequence'])
         
         # Store debitur name in DataFrame attributes
         if debitur_name:

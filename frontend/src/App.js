@@ -226,39 +226,24 @@ function App() {
 
   const formatCurrency = (amount) => {
     if (typeof amount === 'string') return amount;
-    // Custom format: use comma for both thousand separator AND decimal separator
-    // Example: 270,022,045,46 (all commas)
+    // International format: 18,000,000.00 (comma for thousands, dot for decimal)
     const formatted = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
-    // Replace the decimal dot with comma
-    return formatted.replace('.', ',');
+    return formatted;
   };
 
   const parseIndonesianNumber = (value) => {
     if (!value || value === '-') return 0;
     if (typeof value === 'number') return value;
     
-    // Indonesian format: 1,234,567,89
-    // Last comma is decimal separator, others are thousand separators
+    // International format: 18,000,000.00 (comma for thousands, dot for decimal)
     const str = String(value).trim();
-    const lastCommaPos = str.lastIndexOf(',');
     
-    if (lastCommaPos === -1) {
-      return parseFloat(str) || 0;
-    }
-    
-    // Check if last comma is decimal (within last 3 chars)
-    if (str.length - lastCommaPos <= 3) {
-      // Remove thousand separators (all commas except last), replace last with dot
-      const beforeDecimal = str.substring(0, lastCommaPos).replace(/,/g, '');
-      const afterDecimal = str.substring(lastCommaPos + 1);
-      return parseFloat(`${beforeDecimal}.${afterDecimal}`) || 0;
-    }
-    
-    // All commas are thousand separators
-    return parseFloat(str.replace(/,/g, '')) || 0;
+    // Remove commas (thousand separators) and parse
+    const cleaned = str.replace(/,/g, '');
+    return parseFloat(cleaned) || 0;
   };
 
   const getAvailableMonths = () => {
@@ -471,64 +456,85 @@ function App() {
             <div className="features-column">
               <div className="latest-features-card">
                 <h3 className="section-title">
-                  <span className="badge-new">NEW</span>
-                  Fitur Terbaru v2.0
+                  <span className="badge-new">v2.1.0</span>
+                  Changelog & Fitur Terbaru
                 </h3>
                 
-                <div className="features-list">
-                  <div className="feature-item-mini">
-                    <span className="feature-icon-mini">🏦</span>
+                <div className="changelog-section">
+                  <h4 className="changelog-version">🎉 Version 2.1.0 (Sep 2026)</h4>
+                  <div className="feature-item-mini highlight">
+                    <span className="feature-icon-mini">✨</span>
                     <div>
-                      <strong>Multi-Bank Support</strong>
-                      <p>BSI, Mandiri, BCA, BRI, BNI, Bank Kalsel</p>
+                      <strong>Balance-Based Detection</strong>
+                      <p>Semua transaksi (monthly fee, admin fee, tax, dll) PASTI terdeteksi sebagai Debit/Kredit tanpa bergantung keyword</p>
                     </div>
                   </div>
-
-                  <div className="feature-item-mini">
-                    <span className="feature-icon-mini">📋</span>
-                    <div>
-                      <strong>IDEB SLIK Analyzer</strong>
-                      <p>Analisis kredit/pinjaman (Baki Debet &gt; 0)</p>
-                    </div>
-                  </div>
-
-                  <div className="feature-item-mini">
-                    <span className="feature-icon-mini">📄</span>
-                    <div>
-                      <strong>Multi-Format</strong>
-                      <p>CSV, PDF, Excel, Image (OCR)</p>
-                    </div>
-                  </div>
-
-                  <div className="feature-item-mini">
-                    <span className="feature-icon-mini">🔍</span>
-                    <div>
-                      <strong>Smart Filter Download</strong>
-                      <p>Download sesuai filter aktif</p>
-                    </div>
-                  </div>
-
-                  <div className="feature-item-mini">
+                  <div className="feature-item-mini highlight">
                     <span className="feature-icon-mini">📊</span>
                     <div>
-                      <strong>Statistik Real-time</strong>
-                      <p>Filter per bulan & tanggal</p>
+                      <strong>100% Accurate Mutation Stats</strong>
+                      <p>Total Mutasi Debet/Kredit & Freq Debet/Kredit sekarang 100% akurat untuk Bank Kalsel, Mandiri, BSI, dan BRI</p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="feature-item-mini">
-                    <span className="feature-icon-mini">📤</span>
-                    <div>
-                      <strong>Batch Upload</strong>
-                      <p>Hingga 100 file sekaligus</p>
+                <div className="changelog-section">
+                  <h4 className="changelog-version">Version 2.0.0</h4>
+                  <div className="features-list">
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">🏦</span>
+                      <div>
+                        <strong>Multi-Bank Support</strong>
+                        <p>BSI, Mandiri, BCA, BRI, BNI, Bank Kalsel</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="feature-item-mini">
-                    <span className="feature-icon-mini">🔐</span>
-                    <div>
-                      <strong>Password-Protected PDF</strong>
-                      <p>Mandiri e-Statement dengan password</p>
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">📋</span>
+                      <div>
+                        <strong>IDEB SLIK Analyzer</strong>
+                        <p>Analisis kredit/pinjaman (Baki Debet &gt; 0)</p>
+                      </div>
+                    </div>
+
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">📄</span>
+                      <div>
+                        <strong>Multi-Format</strong>
+                        <p>CSV, PDF, Excel, Image (OCR)</p>
+                      </div>
+                    </div>
+
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">🔍</span>
+                      <div>
+                        <strong>Smart Filter Download</strong>
+                        <p>Download sesuai filter aktif</p>
+                      </div>
+                    </div>
+
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">📊</span>
+                      <div>
+                        <strong>Statistik Real-time</strong>
+                        <p>Filter per bulan & tanggal</p>
+                      </div>
+                    </div>
+
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">📤</span>
+                      <div>
+                        <strong>Batch Upload</strong>
+                        <p>Hingga 100 file sekaligus</p>
+                      </div>
+                    </div>
+
+                    <div className="feature-item-mini">
+                      <span className="feature-icon-mini">🔐</span>
+                      <div>
+                        <strong>Password-Protected PDF</strong>
+                        <p>Mandiri e-Statement dengan password</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -589,6 +595,7 @@ function App() {
             </div>
             <div className="footer-info">
               <p>© 2026 Tama. All rights reserved.</p>
+              <p className="footer-version">Version 2.1.0 - Balance-Based Detection</p>
               <p className="footer-tagline">Built with 💚 for better financial tracking</p>
             </div>
           </div>
@@ -855,7 +862,7 @@ function App() {
                     <thead>
                       <tr>
                         <th>Tanggal</th>
-                        <th className="text-right">Saldo Akhir Hari</th>
+                        <th className="text-right">Saldo</th>
                       </tr>
                     </thead>
                     <tbody>

@@ -553,6 +553,92 @@ def process_mandiri_pdf(filepath, pdf_password=''):
                                 found_transaction = True
                                 i = k if 'k' in locals() else j + 1
                                 break
+                            elif len(numbers) == 2:
+                                # Only 2 numbers: amount + balance (no explicit debit/credit)
+                                # Use BALANCE-BASED detection
+                                amount_str = numbers[-2]
+                                balance_str = numbers[-1]
+                                
+                                amount = clean_amount(amount_str)
+                                balance = clean_amount(balance_str)
+                                
+                                # Compare with previous balance
+                                if output_data and len(output_data) > 0:
+                                    prev_balance_str = output_data[-1]['Balance']
+                                    prev_balance = float(prev_balance_str.replace(',', ''))
+                                    
+                                    balance_diff = balance - prev_balance
+                                    
+                                    if balance_diff > 0:
+                                        transaction_type = 'Credit'
+                                    elif balance_diff < 0:
+                                        transaction_type = 'Debit'
+                                        amount = abs(balance_diff)
+                                    else:
+                                        i = j + 1
+                                        found_transaction = True
+                                        break
+                                else:
+                                    # First transaction, skip
+                                    i = j + 1
+                                    found_transaction = True
+                                    break
+                                
+                                # Rest is same as 3-number case
+                                time_str = None
+                                description_parts = []
+                                
+                                for k in range(j + 1, min(j + 10, len(lines))):
+                                    desc_line = lines[k].strip()
+                                    
+                                    if not desc_line:
+                                        continue
+                                    
+                                    if re.match(r'^\d{8}[A-Z]{6,8}\d{3}[A-Z]?\d{0,10}$', desc_line) or (desc_line.isdigit() and 8 <= len(desc_line) <= 20):
+                                        pending_reference = desc_line
+                                        break
+                                    
+                                    if re.match(r'\d{2}\s+[A-Za-z]{3}\s+\d{4},', desc_line) or re.match(r'\d{2}/\d{2}/\d{4}', desc_line):
+                                        break
+                                    
+                                    time_match = re.match(r'^(\d{2}:\d{2}:\d{2})', desc_line)
+                                    if time_match and not time_str:
+                                        time_str = time_match.group(1)
+                                        desc_after_time = desc_line[time_match.end():].strip()
+                                        if desc_after_time:
+                                            description_parts.append(desc_after_time)
+                                    else:
+                                        description_parts.append(desc_line)
+                                    
+                                    if time_str and len(description_parts) >= 2:
+                                        break
+                                
+                                description = ' '.join(description_parts).strip()
+                                description = ' '.join(description.split())
+                                
+                                if time_str:
+                                    try:
+                                        datetime_obj = pd.to_datetime(f"{date_str} {time_str}", format='%d %b %Y %H:%M:%S')
+                                    except:
+                                        datetime_obj = date
+                                else:
+                                    datetime_obj = date
+                                
+                                output_data.append({
+                                    'DateTime': datetime_obj,
+                                    'OriginalIndex': len(output_data),
+                                    'Date': date,
+                                    'Reference': reference,
+                                    'Description': description,
+                                    'Type': transaction_type,
+                                    'Amount': format_indonesian_number(amount),
+                                    'Balance': format_indonesian_number(balance)
+                                })
+                                
+                                found_transaction = True
+                                i = k if 'k' in locals() else j + 1
+                                break
+
                         
                         if not found_transaction:
                             i += 1

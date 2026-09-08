@@ -10,6 +10,7 @@ from processors.bca_processor import process_bca_file
 from processors.bri_processor import process_bri_file
 from processors.bni_processor import process_bni_file
 from processors.bank_kalsel_processor import process_bank_kalsel_file
+from processors.byond_processor import process_byond_file
 from processors.ideb_processor import process_ideb_file
 
 # Try to import image processor, but don't fail if not available
@@ -80,6 +81,10 @@ def process_single_file(filepath, filename, pdf_password=''):
     elif bank_name == 'BANK_KALSEL':
         df = process_bank_kalsel_file(filepath, file_ext)
         file_type = f'Bank Kalsel {file_ext.upper()}'
+    
+    elif bank_name == 'BYOND':
+        df = process_byond_file(filepath, file_ext)
+        file_type = f'Byond {file_ext.upper()}'
     
     elif bank_name == 'IDEB':
         df = process_ideb_file(filepath, file_ext)
@@ -185,15 +190,55 @@ def process_combined_dataframe(df, source_files, processed_files, failed_files, 
     # Convert Amount and Balance back to float for calculations
     def parse_indonesian_number(value):
         if isinstance(value, str):
-            last_comma_pos = value.rfind(',')
-            if last_comma_pos == -1:
+            value = value.strip().replace('Rp', '').replace(' ', '').strip()
+            
+            # Handle different formats:
+            # 1. Indonesian: 1.234.567,89 (dots for thousands, comma for decimal)
+            # 2. International: 1,234,567.89 (commas for thousands, dot for decimal)
+            # 3. Mixed: 200.000.000.00 (dots everywhere)
+            
+            if ',' in value and '.' in value:
+                # Both separators present
+                last_comma_pos = value.rfind(',')
+                last_dot_pos = value.rfind('.')
+                
+                if last_dot_pos > last_comma_pos:
+                    # Format: 1,234,567.89 (International)
+                    value = value.replace(',', '')
+                else:
+                    # Format: 1.234.567,89 (Indonesian)
+                    value = value.replace('.', '').replace(',', '.')
+            elif ',' in value:
+                # Only comma present
+                last_comma_pos = value.rfind(',')
+                decimal_part_length = len(value) - last_comma_pos - 1
+                
+                if decimal_part_length == 2:
+                    # Format: 1.234.567,89 (Indonesian decimal)
+                    value = value.replace('.', '').replace(',', '.')
+                else:
+                    # Format: 1,234,567 (thousand separator)
+                    value = value.replace(',', '')
+            elif '.' in value:
+                # Only dots present
+                last_dot_pos = value.rfind('.')
+                decimal_part_length = len(value) - last_dot_pos - 1
+                
+                if decimal_part_length == 2:
+                    # Format: 200.000.000.00 - last dot is decimal
+                    value = value[:last_dot_pos].replace('.', '') + '.' + value[last_dot_pos+1:]
+                elif decimal_part_length > 3:
+                    # Keep as is
+                    pass
+                else:
+                    # All dots are thousand separators
+                    value = value.replace('.', '')
+            
+            try:
                 return float(value)
-            if len(value) - last_comma_pos <= 3:
-                before_decimal = value[:last_comma_pos].replace(',', '')
-                after_decimal = value[last_comma_pos+1:]
-                return float(f"{before_decimal}.{after_decimal}")
-            else:
-                return float(value.replace(',', ''))
+            except Exception as e:
+                print(f"⚠ Failed to parse '{value}': {e}")
+                return 0.0
         return float(value)
     
     df['Amount_numeric'] = df['Amount'].apply(parse_indonesian_number)
@@ -209,9 +254,66 @@ def process_combined_dataframe(df, source_files, processed_files, failed_files, 
         last_idx = df[df['DateOnly'] == date].index[-1]
         df.loc[last_idx, 'is_last_of_day'] = True
     
-    # Daily balance table
-    daily_balance = df[df['is_last_of_day']][['Date', 'Balance']].copy()
-    daily_balance_data = daily_balance.to_dict('records')
+    # Daily balance table - strategy depends on bank type
+    daily_balance_data = []
+    
+    # Check if this is BCA (has backdate transactions with "TANGGAL :")
+    has_backdate = df['Description'].str.contains('TANGGAL :', case=False, na=False).any()
+    
+    if has_backdate:
+        # BCA Strategy: Use first non-backdate transaction balance
+        for date in sorted(df['DateOnly'].unique()):
+            day_transactions = df[df['DateOnly'] == date]
+            
+            balance_value = '0.00'
+            
+            # Find FIRST non-backdate Debit with balance
+            non_backdate_debit = day_transactions[
+                (day_transactions['Type'] == 'Debit') & 
+                (~day_transactions['Description'].str.contains('TANGGAL :', case=False, na=False)) &
+                (day_transactions['Balance'] != '0.00')
+            ]
+            
+            if len(non_backdate_debit) > 0:
+                balance_value = non_backdate_debit.iloc[0]['Balance']
+            else:
+                # Find FIRST non-backdate Credit with balance
+                non_backdate_credit = day_transactions[
+                    (day_transactions['Type'] == 'Credit') & 
+                    (~day_transactions['Description'].str.contains('TANGGAL :', case=False, na=False)) &
+                    (day_transactions['Balance'] != '0.00')
+                ]
+                
+                if len(non_backdate_credit) > 0:
+                    balance_value = non_backdate_credit.iloc[0]['Balance']
+                else:
+                    # Fallback: Use first balance (any)
+                    non_zero = day_transactions[day_transactions['Balance'] != '0.00']
+                    if len(non_zero) > 0:
+                        balance_value = non_zero.iloc[0]['Balance']
+            
+            daily_balance_data.append({
+                'Date': day_transactions.iloc[0]['Date'],
+                'Balance': balance_value
+            })
+    else:
+        # Other banks (Bank Kalsel, Mandiri, etc.): Use LAST balance of the day
+        for date in sorted(df['DateOnly'].unique()):
+            day_transactions = df[df['DateOnly'] == date]
+            
+            balance_value = '0.00'
+            
+            # Strategy: Get LAST transaction balance (end of day balance)
+            non_zero = day_transactions[day_transactions['Balance'] != '0.00']
+            
+            if len(non_zero) > 0:
+                # Use LAST balance (final transaction of the day)
+                balance_value = non_zero.iloc[-1]['Balance']
+            
+            daily_balance_data.append({
+                'Date': day_transactions.iloc[0]['Date'],
+                'Balance': balance_value
+            })
     
     # Monthly summary with frequency counts
     monthly_summary = []
@@ -384,6 +486,10 @@ def upload_file():
                 df = process_bank_kalsel_file(filepath, file_ext)
                 file_type = f'Bank Kalsel {file_ext.upper()}'
             
+            elif bank_name == 'BYOND':
+                df = process_byond_file(filepath, file_ext)
+                file_type = f'Byond {file_ext.upper()}'
+            
             elif bank_name == 'IDEB':
                 df = process_ideb_file(filepath, file_ext)
                 file_type = f'IDEB SLIK {file_ext.upper()}'
@@ -468,30 +574,56 @@ def upload_file():
         # Convert Amount and Balance back to float for calculations
         def parse_indonesian_number(value):
             """Convert Indonesian format string back to float for calculations
-            Indonesian format: 1,234,567,89 where comma is BOTH thousand separator AND decimal separator
-            The LAST comma is the decimal separator, others are thousand separators
+            Handles multiple formats:
+            - Indonesian: 1.234.567,89 (dots for thousands, comma for decimal)
+            - International: 1,234,567.89 (commas for thousands, dot for decimal)
+            - Mixed: 200.000.000.00 (dots everywhere)
             """
             if isinstance(value, str):
-                # Remove thousand separators (all commas except the last one)
-                # Then convert last comma to dot for decimal
+                value = value.strip().replace('Rp', '').replace(' ', '').strip()
                 
-                # Find position of last comma
-                last_comma_pos = value.rfind(',')
+                if ',' in value and '.' in value:
+                    # Both separators present
+                    last_comma_pos = value.rfind(',')
+                    last_dot_pos = value.rfind('.')
+                    
+                    if last_dot_pos > last_comma_pos:
+                        # Format: 1,234,567.89 (International)
+                        value = value.replace(',', '')
+                    else:
+                        # Format: 1.234.567,89 (Indonesian)
+                        value = value.replace('.', '').replace(',', '.')
+                elif ',' in value:
+                    # Only comma present
+                    last_comma_pos = value.rfind(',')
+                    decimal_part_length = len(value) - last_comma_pos - 1
+                    
+                    if decimal_part_length == 2:
+                        # Format: 1.234.567,89 (Indonesian decimal)
+                        value = value.replace('.', '').replace(',', '.')
+                    else:
+                        # Format: 1,234,567 (thousand separator)
+                        value = value.replace(',', '')
+                elif '.' in value:
+                    # Only dots present
+                    last_dot_pos = value.rfind('.')
+                    decimal_part_length = len(value) - last_dot_pos - 1
+                    
+                    if decimal_part_length == 2:
+                        # Format: 200.000.000.00 - last dot is decimal
+                        value = value[:last_dot_pos].replace('.', '') + '.' + value[last_dot_pos+1:]
+                    elif decimal_part_length > 3:
+                        # Keep as is
+                        pass
+                    else:
+                        # All dots are thousand separators
+                        value = value.replace('.', '')
                 
-                if last_comma_pos == -1:
-                    # No comma, just parse as is
+                try:
                     return float(value)
-                
-                # Check if last comma is in last 3 positions (decimal separator)
-                if len(value) - last_comma_pos <= 3:
-                    # Last comma is decimal separator
-                    # Remove all commas except the last one, then replace last comma with dot
-                    before_decimal = value[:last_comma_pos].replace(',', '')
-                    after_decimal = value[last_comma_pos+1:]
-                    return float(f"{before_decimal}.{after_decimal}")
-                else:
-                    # All commas are thousand separators
-                    return float(value.replace(',', ''))
+                except Exception as e:
+                    print(f"⚠ Failed to parse '{value}': {e}")
+                    return 0.0
             return float(value)
         
         # Create numeric columns for calculations
@@ -508,9 +640,66 @@ def upload_file():
             last_idx = df[df['DateOnly'] == date].index[-1]
             df.loc[last_idx, 'is_last_of_day'] = True
         
-        # Daily balance table (one row per day)
-        daily_balance = df[df['is_last_of_day']][['Date', 'Balance']].copy()
-        daily_balance_data = daily_balance.to_dict('records')
+        # Daily balance table - strategy depends on bank type
+        daily_balance_data = []
+        
+        # Check if this is BCA (has backdate transactions with "TANGGAL :")
+        has_backdate = df['Description'].str.contains('TANGGAL :', case=False, na=False).any()
+        
+        if has_backdate:
+            # BCA Strategy: Use first non-backdate transaction balance
+            for date in sorted(df['DateOnly'].unique()):
+                day_transactions = df[df['DateOnly'] == date]
+                
+                balance_value = '0.00'
+                
+                # Find FIRST non-backdate Debit with balance
+                non_backdate_debit = day_transactions[
+                    (day_transactions['Type'] == 'Debit') & 
+                    (~day_transactions['Description'].str.contains('TANGGAL :', case=False, na=False)) &
+                    (day_transactions['Balance'] != '0.00')
+                ]
+                
+                if len(non_backdate_debit) > 0:
+                    balance_value = non_backdate_debit.iloc[0]['Balance']
+                else:
+                    # Find FIRST non-backdate Credit with balance
+                    non_backdate_credit = day_transactions[
+                        (day_transactions['Type'] == 'Credit') & 
+                        (~day_transactions['Description'].str.contains('TANGGAL :', case=False, na=False)) &
+                        (day_transactions['Balance'] != '0.00')
+                    ]
+                    
+                    if len(non_backdate_credit) > 0:
+                        balance_value = non_backdate_credit.iloc[0]['Balance']
+                    else:
+                        # Fallback: Use first balance (any)
+                        non_zero = day_transactions[day_transactions['Balance'] != '0.00']
+                        if len(non_zero) > 0:
+                            balance_value = non_zero.iloc[0]['Balance']
+                
+                daily_balance_data.append({
+                    'Date': day_transactions.iloc[0]['Date'],
+                    'Balance': balance_value
+                })
+        else:
+            # Other banks (Bank Kalsel, Mandiri, etc.): Use LAST balance of the day
+            for date in sorted(df['DateOnly'].unique()):
+                day_transactions = df[df['DateOnly'] == date]
+                
+                balance_value = '0.00'
+                
+                # Strategy: Get LAST transaction balance (end of day balance)
+                non_zero = day_transactions[day_transactions['Balance'] != '0.00']
+                
+                if len(non_zero) > 0:
+                    # Use LAST balance (final transaction of the day)
+                    balance_value = non_zero.iloc[-1]['Balance']
+                
+                daily_balance_data.append({
+                    'Date': day_transactions.iloc[0]['Date'],
+                    'Balance': balance_value
+                })
         
         # Monthly summary
         monthly_summary = []
@@ -783,7 +972,7 @@ def download_file(format):
                 
                 # Total row
                 total_row = data_start_row + len(df)
-                total_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Yellow
+                total_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")  # Gray (matching header)
                 total_font = Font(bold=True)
                 
                 # "Total" label (merge B and C)
@@ -903,16 +1092,33 @@ def download_file(format):
         
         # If mode is 'daily', filter to only last transaction of each day
         if mode == 'daily':
-            # Convert Date to datetime
-            df['Date_parsed'] = pd.to_datetime(df['Date'])
+            # Convert Date to datetime (try multiple formats)
+            # First try YYYY-MM-DD format (from CSV)
+            df['Date_parsed'] = pd.to_datetime(df['Date'], format='%Y-%m-%d', errors='coerce')
+            
+            # If that fails, try DD/MM/YYYY format
+            if df['Date_parsed'].isna().all():
+                df['Date_parsed'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
+            
+            # If still fails, let pandas infer
+            if df['Date_parsed'].isna().all():
+                df['Date_parsed'] = pd.to_datetime(df['Date'], errors='coerce')
+            
             df['DateOnly'] = df['Date_parsed'].dt.date
             
             # Group by date and get last transaction (last row per day)
-            daily_df = df.groupby('DateOnly').last().reset_index()
+            daily_df = df.groupby('DateOnly').agg({
+                'Date': 'first',
+                'Date_parsed': 'first',
+                'Balance': 'last'
+            }).reset_index()
             
-            # Keep only Date and Balance columns for daily balance view
-            df = daily_df[['Date', 'Balance']].copy()
-            df.columns = ['Tanggal', 'Saldo Akhir Hari']
+            # Extract day number only (DD) for Tanggal column
+            daily_df['Tanggal'] = daily_df['Date_parsed'].dt.day
+            
+            # Keep only Tanggal (day number) and Balance columns for export
+            df = daily_df[['Tanggal', 'Balance']].copy()
+            df.columns = ['Tanggal', 'Saldo']
         
         # Generate output filename with filter info
         mode_label = 'full_scan' if mode == 'full' else 'daily_balance'
@@ -943,14 +1149,166 @@ def download_file(format):
                 
                 # Calculate totals
                 if mode == 'daily':
-                    # For daily balance mode, show last balance
-                    if 'Saldo Akhir' in df.columns:
-                        last_balance = df['Saldo Akhir'].iloc[-1] if len(df) > 0 else '0,00'
-                        worksheet.cell(row=last_row + 1, column=1, value='SALDO TERAKHIR:')
-                        worksheet.cell(row=last_row + 1, column=2, value=last_balance)
-                        # Bold the label
-                        from openpyxl.styles import Font
-                        worksheet.cell(row=last_row + 1, column=1).font = Font(bold=True)
+                    # For daily balance mode, calculate statistics
+                    from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+                    
+                    # Parse balance values
+                    def parse_amount(val):
+                        if pd.isna(val) or val == '' or val == '-':
+                            return 0.0
+                        val_str = str(val).strip().replace('Rp', '').replace(' ', '').strip()
+                        
+                        # Handle different formats
+                        if ',' in val_str and '.' in val_str:
+                            last_comma_pos = val_str.rfind(',')
+                            last_dot_pos = val_str.rfind('.')
+                            
+                            if last_dot_pos > last_comma_pos:
+                                # International: 1,234,567.89
+                                val_str = val_str.replace(',', '')
+                            else:
+                                # Indonesian: 1.234.567,89
+                                val_str = val_str.replace('.', '').replace(',', '.')
+                        elif ',' in val_str:
+                            val_str = val_str.replace('.', '').replace(',', '.')
+                        elif '.' in val_str:
+                            last_dot_pos = val_str.rfind('.')
+                            decimal_part_length = len(val_str) - last_dot_pos - 1
+                            if decimal_part_length == 2:
+                                val_str = val_str[:last_dot_pos].replace('.', '') + '.' + val_str[last_dot_pos+1:]
+                            else:
+                                val_str = val_str.replace('.', '')
+                        
+                        try:
+                            return float(val_str)
+                        except:
+                            return 0.0
+                    
+                    df_numeric = df.copy()
+                    df_numeric['Balance_numeric'] = df_numeric['Saldo'].apply(parse_amount)
+                    
+                    # Calculate statistics
+                    total_balance = df_numeric['Balance_numeric'].sum()
+                    avg_balance = df_numeric['Balance_numeric'].mean()
+                    highest_balance = df_numeric['Balance_numeric'].max()
+                    lowest_balance = df_numeric['Balance_numeric'].min()
+                    
+                    # Add blank row
+                    stats_start_row = last_row + 1
+                    
+                    # Statistics section (like template)
+                    worksheet.cell(row=stats_start_row, column=1, value='Total')
+                    worksheet.cell(row=stats_start_row, column=2, value=total_balance)
+                    worksheet.cell(row=stats_start_row, column=2).number_format = '#,##0.00'
+                    
+                    worksheet.cell(row=stats_start_row + 1, column=1, value='Rata-rata Pengendapan')
+                    worksheet.cell(row=stats_start_row + 1, column=2, value=avg_balance)
+                    worksheet.cell(row=stats_start_row + 1, column=2).number_format = '#,##0.00'
+                    
+                    worksheet.cell(row=stats_start_row + 2, column=1, value='Saldo Rata-rata')
+                    worksheet.cell(row=stats_start_row + 2, column=2, value=avg_balance)
+                    worksheet.cell(row=stats_start_row + 2, column=2).number_format = '#,##0.00'
+                    
+                    worksheet.cell(row=stats_start_row + 3, column=1, value='Saldo Tertinggi')
+                    worksheet.cell(row=stats_start_row + 3, column=2, value=highest_balance)
+                    worksheet.cell(row=stats_start_row + 3, column=2).number_format = '#,##0.00'
+                    
+                    worksheet.cell(row=stats_start_row + 4, column=1, value='Saldo Terendah')
+                    worksheet.cell(row=stats_start_row + 4, column=2, value=lowest_balance)
+                    worksheet.cell(row=stats_start_row + 4, column=2).number_format = '#,##0.00'
+                    
+                    # Calculate mutation statistics from original transaction data
+                    # Read the original CSV file to get all transactions
+                    original_csv_path = os.path.join(OUTPUT_FOLDER, data.get('tempFile'))
+                    df_full = pd.read_csv(original_csv_path)
+                    
+                    # Calculate debit and credit totals
+                    total_debit = 0.0
+                    total_credit = 0.0
+                    freq_debit = 0
+                    freq_credit = 0
+                    
+                    if 'Type' in df_full.columns and 'Amount' in df_full.columns:
+                        for _, row in df_full.iterrows():
+                            trans_type = str(row['Type']).strip().lower()
+                            amount = parse_amount(row['Amount'])
+                            
+                            if trans_type in ['debit', 'db', 'debet']:
+                                total_debit += amount
+                                freq_debit += 1
+                            elif trans_type in ['credit', 'cr', 'kredit']:
+                                total_credit += amount
+                                freq_credit += 1
+                    
+                    # Add blank row before mutation statistics
+                    mutation_start_row = stats_start_row + 6
+                    
+                    # Mutation statistics table header
+                    worksheet.merge_cells(start_row=mutation_start_row, start_column=1, end_row=mutation_start_row, end_column=3)
+                    header_cell = worksheet.cell(row=mutation_start_row, column=1)
+                    header_cell.value = 'Mutasi Debet'
+                    header_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                    header_cell.font = Font(bold=True)
+                    header_cell.alignment = Alignment(horizontal='center')
+                    
+                    worksheet.merge_cells(start_row=mutation_start_row, start_column=4, end_row=mutation_start_row, end_column=6)
+                    header_cell2 = worksheet.cell(row=mutation_start_row, column=4)
+                    header_cell2.value = 'Mutasi kredit'
+                    header_cell2.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                    header_cell2.font = Font(bold=True)
+                    header_cell2.alignment = Alignment(horizontal='center')
+                    
+                    # Mutation statistics rows with calculated values
+                    mutation_rows = [
+                        ('Total Mutasi', total_debit, total_credit),
+                        ('Adjusted', '-', '-'),
+                        ('Total Frekuensi', freq_debit, freq_credit),
+                        ('Adjusted', '-', '-')
+                    ]
+                    
+                    for idx, (label, debit_val, credit_val) in enumerate(mutation_rows, start=1):
+                        row_num = mutation_start_row + idx
+                        worksheet.cell(row=row_num, column=1, value=label)
+                        worksheet.merge_cells(start_row=row_num, start_column=2, end_row=row_num, end_column=3)
+                        
+                        # Set debit value
+                        debit_cell = worksheet.cell(row=row_num, column=2)
+                        if isinstance(debit_val, (int, float)):
+                            debit_cell.value = debit_val
+                            debit_cell.number_format = '#,##0.00'
+                        else:
+                            debit_cell.value = debit_val
+                        
+                        worksheet.merge_cells(start_row=row_num, start_column=5, end_row=row_num, end_column=6)
+                        
+                        # Set credit value
+                        credit_cell = worksheet.cell(row=row_num, column=5)
+                        if isinstance(credit_val, (int, float)):
+                            credit_cell.value = credit_val
+                            credit_cell.number_format = '#,##0.00'
+                        else:
+                            credit_cell.value = credit_val
+                        
+                        # Add borders
+                        thin_border = Border(
+                            left=Side(style='thin'),
+                            right=Side(style='thin'),
+                            top=Side(style='thin'),
+                            bottom=Side(style='thin')
+                        )
+                        for col in range(1, 7):
+                            worksheet.cell(row=row_num, column=col).border = thin_border
+                    
+                    # Add borders to header
+                    thin_border = Border(
+                        left=Side(style='thin'),
+                        right=Side(style='thin'),
+                        top=Side(style='thin'),
+                        bottom=Side(style='thin')
+                    )
+                    for col in range(1, 7):
+                        worksheet.cell(row=mutation_start_row, column=col).border = thin_border
+                        
                 else:
                     # For full transactions mode, calculate mutasi debit and kredit
                     # Import format functions
@@ -968,7 +1326,41 @@ def download_file(format):
                     def parse_amount(val):
                         if pd.isna(val) or val == '' or val == '-':
                             return 0.0
-                        val_str = str(val).replace('.', '').replace(',', '.')
+                        val_str = str(val).strip().replace('Rp', '').replace(' ', '').strip()
+                        
+                        # Handle different formats
+                        if ',' in val_str and '.' in val_str:
+                            last_comma_pos = val_str.rfind(',')
+                            last_dot_pos = val_str.rfind('.')
+                            
+                            if last_dot_pos > last_comma_pos:
+                                # International: 1,234,567.89
+                                val_str = val_str.replace(',', '')
+                            else:
+                                # Indonesian: 1.234.567,89
+                                val_str = val_str.replace('.', '').replace(',', '.')
+                        elif ',' in val_str:
+                            # Only comma
+                            last_comma_pos = val_str.rfind(',')
+                            decimal_part_length = len(val_str) - last_comma_pos - 1
+                            
+                            if decimal_part_length == 2:
+                                val_str = val_str.replace('.', '').replace(',', '.')
+                            else:
+                                val_str = val_str.replace(',', '')
+                        elif '.' in val_str:
+                            # Only dots
+                            last_dot_pos = val_str.rfind('.')
+                            decimal_part_length = len(val_str) - last_dot_pos - 1
+                            
+                            if decimal_part_length == 2:
+                                # Format: 200.000.000.00
+                                val_str = val_str[:last_dot_pos].replace('.', '') + '.' + val_str[last_dot_pos+1:]
+                            elif decimal_part_length > 3:
+                                pass
+                            else:
+                                val_str = val_str.replace('.', '')
+                        
                         try:
                             return float(val_str)
                         except:
@@ -982,10 +1374,10 @@ def download_file(format):
                     total_credit = df_numeric[df_numeric['Type'] == 'Credit']['Amount_numeric'].sum()
                     last_balance = df_numeric['Balance_numeric'].iloc[-1] if len(df_numeric) > 0 else 0.0
                     
-                    # Format to English format (comma as thousand separator, dot as decimal)
+                    # Format to International format (comma as thousand separator, dot as decimal)
                     total_debit_formatted = format_english_number(total_debit)
                     total_credit_formatted = format_english_number(total_credit)
-                    last_balance_formatted = format_indonesian_number(last_balance)  # Keep Indonesian for balance to match column
+                    last_balance_formatted = format_english_number(last_balance)  # Use International format consistently
                     
                     # Write summary
                     worksheet.cell(row=last_row + 1, column=1, value='TOTAL MUTASI DEBIT:')

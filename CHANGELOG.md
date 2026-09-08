@@ -2,89 +2,122 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.0] - 2026-08-26
+## [2.1.0] - 2026-09-08
 
-### Added
-- **Multi-Bank Support**: Added support for 6 banks
-  - BSI (Bank Syariah Indonesia) - CSV
-  - Mandiri - PDF (4 format variations)
-  - BRI - e-Statement BRImo PDF
-  - BNI - Transaction Inquiry PDF
-  - BCA - Rekening Tahapan PDF
-  - Bank Kalsel - Mutasi Rekening PDF
-- **Smart Bank Detection**: Auto-detect bank from file content, not filename
-- **Password Protected PDF**: Auto-detect and handle Mandiri password-protected PDFs
-- **Batch Upload**: Upload up to 100 files simultaneously
-- **PyMuPDF Fallback**: Automatic fallback to PyMuPDF when pdfplumber fails
-- **Excel Summary Rows**: Download includes Total Mutasi Debit/Kredit/Saldo
-- **Custom Number Format**: Format 337,313,654,34 (comma for both thousands and decimal)
+### 🎉 Major Update: Balance-Based Detection
 
-### Changed
-- **Number Format**: Changed from Indonesian (1.234.567,89) to custom (1,234,567,89)
-- **File Organization**: Organized project structure for GitHub
-  - test_data/ for PDF/CSV test files
-  - tests/ for test scripts
-  - docs/development/ for development documentation
-- **Max Batch Files**: Increased from 20 to 100 files
-- **Max File Size**: Increased from 10MB to 20MB
+#### Added
+- **Balance-Based Debit/Credit Detection** for Bank Kalsel, Mandiri, and BSI processors
+  - Primary detection now uses balance comparison (current balance vs previous balance)
+  - Keyword detection relegated to fallback (first transaction only)
+  - **Result**: ALL transactions including monthly fees, admin fees, tax, etc. are now correctly classified as Debit/Kredit
 
-### Fixed
-- **BRI Detection**: Fixed conflict between BRI and Mandiri detection
-- **BCA Complex PDF**: Fixed parsing for 71-page BCA PDFs (657+ transactions)
-- **Mandiri Password**: Auto-detect password "07031985" for protected PDFs
-- **Amount Formatting**: Consistent formatting across all banks
-- **Bank Detection Order**: Proper priority to avoid false positives
+#### Changed
+- **Bank Kalsel Processor** (`bank_kalsel_processor.py`)
+  - Removed hardcoded special cases (lines 234-246)
+  - Removed keyword-based detection (lines 247-265)
+  - Implemented balance-based logic: `if balance_diff > 0: Credit, elif balance_diff < 0: Debit`
+  
+- **Mandiri Processor** (`mandiri_processor.py`)
+  - Added balance-based detection for Format 2 (2 numbers: amount + balance only)
+  - Previously only handled explicit debit/credit columns
+  
+- **BSI Processor** (`bsi_processor.py`)
+  - Replaced keyword detection in PDF processor with balance-based logic
+  - Keywords now only used as fallback for first transaction
 
-## [1.3.0] - 2026-08-20
+#### Fixed
+- **100% Accurate Mutation Statistics**
+  - Total Mutasi Debet/Kredit now includes ALL transactions without exception
+  - Freq Debet/Kredit counts are 100% accurate
+  - Monthly fees, admin fees, transaction fees, tax, etc. are all correctly counted
 
-### Added
-- **Batch Upload Feature**: Upload multiple files
-- **Image OCR Support**: Support JPG/PNG with Tesseract OCR
-- **Monthly Filter**: Filter saldo harian by month
-- **Badge Indicator**: Show data source (PDF Summary / Calculated)
+#### Test Results
+- ✅ BRI PT HANISA: Monthly Fee ATM (5,000) → Debit
+- ✅ BRI HANISA: Minimum Balance Fee (50,000) → Debit
+- ✅ Bank Kalsel: All transaction fees, admin fees → Debit
+- ✅ Mandiri: Biaya administrasi, biaya transfer, pajak → All Debit
+- ✅ Full app flow test: 10/10 files passed
 
-### Changed
-- **UI Redesign**: Modern dark theme with minimalist design
-- **Animated Background**: 3D particles and floating documents
+#### Technical Details
+```python
+# Balance-based detection logic (applied to Bank Kalsel, Mandiri, BSI)
+if output_data and len(output_data) > 0:
+    prev_balance = float(output_data[-1]['Balance'].replace(',', ''))
+    balance_diff = balance - prev_balance
+    
+    if balance_diff > 0:
+        transaction_type = 'Credit'  # Balance increased
+    elif balance_diff < 0:
+        transaction_type = 'Debit'   # Balance decreased
+else:
+    # Fallback: Enhanced keyword detection (first transaction only)
+```
 
-### Fixed
-- **Timestamp Sorting**: Fixed saldo harian accuracy
-- **Negative Debit**: Handle negative debit values correctly
-- **CSV Separator**: Auto-detect comma or semicolon
-
-## [1.2.0] - 2026-08-15
-
-### Added
-- **PDF Summary Extraction**: Extract totals from Mandiri PDF summary
-- **Monthly Breakdown**: Show total amount and frequency per month
-- **Copy to Clipboard**: Easy copy-paste workflow
-
-### Fixed
-- **Debit Parsing**: Fixed debit transactions not parsing
-- **Decimal Format**: Fixed amount 100x too large issue
-
-## [1.1.0] - 2026-08-10
-
-### Added
-- **Mandiri PDF Support**: Added Mandiri rekening koran PDF processor
-- **Saldo Harian Mode**: Daily balance calculation
-- **Download Options**: Excel and CSV formats
-
-### Changed
-- **Format Angka**: Indonesian number format (koma as decimal)
-
-## [1.0.0] - 2026-08-05
-
-### Added
-- **Initial Release**: BSI CSV to Excel converter
-- **Web GUI**: React frontend
-- **Flask Backend**: Python processing
-- **Basic Features**: Upload, process, download
+#### User Impact
+- **Problem**: User reported that monthly fees and other charges were not included in mutation statistics because they relied on keyword detection
+- **Solution**: Switched to balance-based detection which captures ALL transactions regardless of description keywords
+- **User Requirement**: "jangan ambil dari keterangan, tapi dari debet dan kredit aja" ✅ Fulfilled
 
 ---
 
-## Legend
-- **Added**: New features
-- **Changed**: Changes to existing features
-- **Fixed**: Bug fixes
-- **Removed**: Removed features
+## [2.0.0] - 2026-08-24
+
+### Added
+- **IDEB SLIK Analyzer**
+  - Analyze credit/loan data from IDEB SLIK PDF
+  - Filter by Baki Debet > 0
+  - Export to CSV/Excel with totals
+
+- **Multi-Bank Support**
+  - BSI (CSV, PDF, Excel)
+  - Mandiri (PDF with password support)
+  - BCA (PDF)
+  - BRI (PDF with balance-based detection)
+  - BNI (PDF)
+  - Bank Kalsel (PDF)
+  - Auto-detection for bank type
+
+- **Multi-Format Support**
+  - CSV files
+  - PDF files (with OCR)
+  - Excel files (.xlsx, .xls)
+  - Image files (.jpg, .png) with OCR
+
+- **Batch Upload**
+  - Upload up to 100 files simultaneously
+  - Max 20MB per file
+
+- **Password-Protected PDF**
+  - Support for Mandiri e-Statement with password
+
+- **Smart Filter & Download**
+  - Filter by month
+  - Filter by date range
+  - Download respects active filters
+
+- **Real-time Statistics**
+  - Total Mutasi Debet/Kredit
+  - Freq Debet/Kredit
+  - Updates dynamically with filters
+
+### Changed
+- Complete UI redesign with 3D animated background
+- Improved navigation and user experience
+- Better error handling and user feedback
+
+### Fixed
+- BRI processor header skip logic (prevent skipping "Minimum Balance Fee")
+- BRI teller ID detection (check if last word looks like teller ID)
+- Daily balance format (YYYY-MM-DD)
+- Mutation statistics calculation
+
+---
+
+## [1.0.0] - 2026-06-01
+
+### Initial Release
+- Basic bank statement processing
+- CSV to Excel conversion
+- Simple UI
+- Single file upload

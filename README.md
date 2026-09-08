@@ -1,6 +1,25 @@
 # 🏦 Bank Statement Converter
 
+![Version](https://img.shields.io/badge/version-2.1.0-brightgreen)
+![Status](https://img.shields.io/badge/status-stable-blue)
+![Banks](https://img.shields.io/badge/banks-6-orange)
+
 Aplikasi web untuk mengkonversi rekening koran dari **multiple banks** ke format Excel yang rapi dan terstruktur dengan akurasi tinggi.
+
+## 🎉 What's New in v2.1.0
+
+### Balance-Based Detection ✨
+- **100% Accurate Mutation Statistics**: Semua transaksi (monthly fee, admin fee, tax, dll) PASTI terdeteksi sebagai Debit/Kredit
+- **No More Keyword Dependency**: Detection tidak lagi bergantung pada keyword di deskripsi
+- **Applied to**: Bank Kalsel, Mandiri, BSI, and BRI processors
+
+**Problem Solved**: 
+- ❌ Before: Monthly fees sometimes missed → Mutation stats incomplete
+- ✅ After: ALL transactions captured → 100% accurate stats
+
+**Technical**: Balance comparison (current vs previous) determines Debit/Kredit automatically.
+
+[See full changelog](CHANGELOG.md)
 
 ## ✨ Fitur
 

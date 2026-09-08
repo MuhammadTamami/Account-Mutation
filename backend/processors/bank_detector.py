@@ -154,7 +154,18 @@ def detect_bank_from_pdf(filepath):
         text_lower = text.lower()
         print(f"📄 PDF text sample (first 200 chars): {text_lower[:200]}")
         
-        # IDEB SLIK patterns - CHECK FIRST (contains many bank names, can be misdetected)
+        # BYOND patterns - CHECK FIRST (unique format)
+        if 'byond' in text_lower:
+            print(f"✓ Detected: BYOND (found 'byond' keyword)")
+            return 'BYOND'
+        if 'easy wadiah' in text_lower and 'laporan rekening' in text_lower:
+            print(f"✓ Detected: BYOND (found 'easy wadiah' + 'laporan rekening')")
+            return 'BYOND'
+        if 'detail transaksi' in text_lower and 'no reff' in text_lower and 'dana masuk' in text_lower:
+            print(f"✓ Detected: BYOND (found BYOND format pattern)")
+            return 'BYOND'
+        
+        # IDEB SLIK patterns - CHECK AFTER BYOND (contains many bank names, can be misdetected)
         if 'ideb' in text_lower or 'sistem layanan informasi keuangan' in text_lower:
             print(f"✓ Detected: IDEB (found 'ideb' or 'sistem layanan informasi keuangan')")
             return 'IDEB'
