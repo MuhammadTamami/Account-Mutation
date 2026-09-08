@@ -919,15 +919,19 @@ def download_file(format):
                     cell_plafon = ws.cell(row=row_idx, column=start_col + 2, value=plafon_val)
                     cell_plafon.number_format = '#,##0'
                     
-                    # Yield (column E) - display as number not percentage (3.5 not 3.5%)
+                    # Yield (column E) - store as decimal fraction with percentage format
+                    # This way when copied, the internal value is 0.24 (not 24.0)
                     yield_val = row['Yield (%)']
                     # Remove % if exists
                     if isinstance(yield_val, str):
                         yield_val = yield_val.replace('%', '').strip()
                     try:
                         yield_float = float(str(yield_val).replace(',', '.'))
-                        cell_yield = ws.cell(row=row_idx, column=start_col + 3, value=yield_float)
-                        cell_yield.number_format = '0.00'  # Display as 3.50 not 3.50%
+                        # Convert to decimal fraction: 24.0 → 0.24
+                        yield_decimal = yield_float / 100
+                        cell_yield = ws.cell(row=row_idx, column=start_col + 3, value=yield_decimal)
+                        # Format as percentage: 0.24 displays as "24%"
+                        cell_yield.number_format = '0.00%'
                     except:
                         ws.cell(row=row_idx, column=start_col + 3, value=yield_val)
                     
