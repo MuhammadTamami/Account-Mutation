@@ -480,18 +480,21 @@ function App() {
 
                 <div className="changelog-section ongoing-section">
                   <h4 className="changelog-version">
-                    🚧 On Going Development
-                    <span className="badge-ongoing">WIP</span>
+                    ✅ Production Ready
+                    <span className="badge-ready">LIVE</span>
                   </h4>
-                  <div className="feature-item-mini ongoing">
+                  <div className="feature-item-mini ready">
                     <span className="feature-icon-mini">🤖</span>
                     <div>
-                      <strong>Bot Telegram Integration</strong>
-                      <p>Upload mutrek langsung dari Telegram, auto-processing, download hasil via bot</p>
+                      <strong>Bot Telegram - MURENA</strong>
+                      <p>Upload mutrek langsung dari Telegram, auto-processing 7+ bank, download hasil Excel/CSV via bot</p>
+                      <p className="bot-features">
+                        ✓ Full Scan (semua transaksi) | ✓ Daily Balance (saldo harian + statistik) | ✓ IDEB SLIK (analisis kredit)
+                      </p>
                     </div>
                   </div>
-                  <div className="ongoing-note">
-                    <small>💡 <em>Coming soon! Bot akan memudahkan processing tanpa perlu buka web</em></small>
+                  <div className="ready-note">
+                    <small>🎉 <em>Bot sudah aktif! Hubungi admin untuk akses (@murenabank_bot)</em></small>
                   </div>
                 </div>
 
@@ -613,7 +616,7 @@ function App() {
             <div className="footer-info">
               <p>© 2026 Tama. All rights reserved.</p>
               <p className="footer-version">Version 2.1.0 - Balance-Based Detection</p>
-              <p className="footer-bot-status">🤖 Bot Telegram: <span className="status-wip">Coming Soon</span></p>
+              <p className="footer-bot-status">🤖 Bot Telegram MURENA: <span className="status-live">✅ LIVE & Running</span></p>
               <p className="footer-tagline">Built with 💚 for better financial tracking</p>
             </div>
           </div>

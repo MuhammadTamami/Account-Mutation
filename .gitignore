@@ -26,16 +26,81 @@ wheels/
 # Backend folders
 backend/uploads/*
 backend/outputs/*
+backend/bot_temp/*
 !backend/uploads/.gitkeep
 !backend/outputs/.gitkeep
+!backend/bot_temp/.gitkeep
 
 # Test data and development files
 test_data/
 tests/
 docs/development/
-*.pdf
-*.csv
-whatsapp_pic/
+
+# Test files (development scripts)
+backend/analyze_*.py
+backend/check_*.py
+backend/debug_*.py
+backend/fix_*.py
+backend/organize_*.py
+backend/quick_*.py
+backend/run_all.py
+backend/show_*.py
+backend/test_*.py
+backend/verify_*.py
+
+# Test output files
+backend/*_debug_output.txt
+backend/test_*.xlsx
+backend/test_*.csv
+backend/test_*.txt
+
+# Documentation files (generated during development)
+backend/*_FIX*.md
+backend/*_SUMMARY.md
+backend/*_COMPLETE.md
+backend/*_RESULTS*.md
+backend/*_GUIDE.md
+backend/ISSUE_*.md
+backend/PERBAIKAN_*.md
+backend/RESTORE_*.txt
+backend/FORMAT_*.md
+backend/MARKDOWN_*.md
+backend/TRANSACTION_*.md
+backend/DEBIT_CREDIT_*.md
+backend/MUTATION_*.md
+
+# Root documentation files (development/session notes)
+ACCURACY_TEST_RESULTS.md
+DAILY_BALANCE_*.md
+EXECUTIVE_SUMMARY.md
+FINAL_*.md
+FRONTEND_BOT_*.md
+INSTALL_OCR.md
+OCR_IMPLEMENTATION.md
+ORGANIZATION_COMPLETE.md
+Presentasi.md
+PUSH_TO_GITHUB.md
+QUICK_*.md
+RELEASE_NOTES_*.md
+SUCCESS_REPORT.md
+SUMMARY_*.md
+TEST_*.md
+VERIFICATION_CHECKLIST.md
+
+# Batch files
+*.bat
+!.github/**/*.bat
+
+# Keep important files (exceptions to above rules)
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!LICENSE
+!QUICKSTART.md
+!requirements.txt
+!requirements_bot.txt
+!.gitkeep
+!.gitattributes
 
 # Node
 node_modules/
@@ -70,3 +135,15 @@ build/
 # Logs
 logs/
 *.log
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+*_old.*
+*_backup.*
+whatsapp_pic/

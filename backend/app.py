@@ -876,19 +876,20 @@ def download_file(format):
                 ws = wb.active
                 ws.title = "IDEB SLIK"
                 
-                # B4: Debitur Name
-                ws['B4'] = debitur_name.upper()
-                ws['B4'].font = Font(bold=True, size=12)
+                # A1: Debitur Name (MATCHING NEW SCREENSHOT)
+                ws['A1'] = debitur_name.upper()
+                ws['A1'].font = Font(bold=True, size=11)
                 
-                # B5: Table Header (Row 5, starting from column B)
-                headers = ['No', 'Nama Bank', 'Plafon', 'Yield (%)', 'O/S', 'Tanggal Pencairan', 'Tanggal Jatuh Tempo', 'Jk Waktu', 'Kol', 'Angsuran']
-                header_row = 5
-                start_col = 2  # B column
+                # Row 2: Table Header (starting from column A) - MATCHING NEW SCREENSHOT
+                headers = ['No', 'Nama Bank', 'Plafon', 'Yield (%)', 'O/S', 'Tanggal Pencairan', 'Tanggal Jatuh Tempo', 'Jk Waktu', 'Kol', 'Angsuran', 'Jenis Penggunaan']
+                header_row = 2
+                start_col = 1  # A column (not B!)
                 
-                # Define colors based on screenshot
-                header_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")  # Light gray
+                # Define colors based on NEW screenshot
+                header_fill = PatternFill(start_color="BFBFBF", end_color="BFBFBF", fill_type="solid")  # Gray for headers
+                no_col_fill = PatternFill(start_color="BFBFBF", end_color="BFBFBF", fill_type="solid")  # Gray for No column
                 header_font = Font(bold=True, size=10)
-                header_alignment = Alignment(horizontal='center', vertical='center')
+                header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                 thin_border = Border(
                     left=Side(style='thin'),
                     right=Side(style='thin'),
@@ -905,82 +906,99 @@ def download_file(format):
                     cell.alignment = header_alignment
                     cell.border = thin_border
                 
-                # Write data rows
+                # Write data rows (starting from row 3)
                 data_start_row = header_row + 1
                 for row_idx, (_, row) in enumerate(df.iterrows(), start=data_start_row):
-                    # No (column B)
-                    ws.cell(row=row_idx, column=start_col, value=row_idx - header_row)
+                    # No (column A) - WITH GRAY BACKGROUND
+                    cell_no = ws.cell(row=row_idx, column=start_col, value=row_idx - header_row)
+                    cell_no.fill = no_col_fill  # Gray background for No column
+                    cell_no.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_no.border = thin_border
                     
-                    # Nama Bank (column C)
-                    ws.cell(row=row_idx, column=start_col + 1, value=row['Nama Bank'])
+                    # Nama Bank (column B)
+                    cell_bank = ws.cell(row=row_idx, column=start_col + 1, value=row['Nama Bank'])
+                    cell_bank.border = thin_border
                     
-                    # Plafon (column D) - number format
+                    # Plafon (column C) - number format
                     plafon_val = parse_indonesian_number(row['Plafon'])
                     cell_plafon = ws.cell(row=row_idx, column=start_col + 2, value=plafon_val)
                     cell_plafon.number_format = '#,##0'
+                    cell_plafon.alignment = Alignment(horizontal='right', vertical='center')
+                    cell_plafon.border = thin_border
                     
-                    # Yield (column E) - store as decimal fraction with percentage format
-                    # This way when copied, the internal value is 0.24 (not 24.0)
+                    # Yield (column D) - percentage format
                     yield_val = row['Yield (%)']
-                    # Remove % if exists
                     if isinstance(yield_val, str):
                         yield_val = yield_val.replace('%', '').strip()
                     try:
                         yield_float = float(str(yield_val).replace(',', '.'))
-                        # Convert to decimal fraction: 24.0 → 0.24
                         yield_decimal = yield_float / 100
                         cell_yield = ws.cell(row=row_idx, column=start_col + 3, value=yield_decimal)
-                        # Format as percentage: 0.24 displays as "24%"
                         cell_yield.number_format = '0.00%'
                     except:
-                        ws.cell(row=row_idx, column=start_col + 3, value=yield_val)
+                        cell_yield = ws.cell(row=row_idx, column=start_col + 3, value=yield_val)
+                    cell_yield.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_yield.border = thin_border
                     
-                    # O/S (column F) - number format
+                    # O/S (column E) - number format
                     os_val = parse_indonesian_number(row['O/S'])
                     cell_os = ws.cell(row=row_idx, column=start_col + 4, value=os_val)
                     cell_os.number_format = '#,##0'
+                    cell_os.alignment = Alignment(horizontal='right', vertical='center')
+                    cell_os.border = thin_border
                     
-                    # Tanggal Pencairan (column G) - date format: 16-Dec-21
+                    # Tanggal Pencairan (column F) - date format
                     date_pencairan_str = row['Tanggal Pencairan']
                     try:
-                        # Parse mm/dd/yyyy format
                         date_obj = dt.strptime(date_pencairan_str, '%m/%d/%Y')
                         cell_tgl = ws.cell(row=row_idx, column=start_col + 5, value=date_obj)
                         cell_tgl.number_format = 'DD-MMM-YY'
                     except:
-                        ws.cell(row=row_idx, column=start_col + 5, value=date_pencairan_str)
+                        cell_tgl = ws.cell(row=row_idx, column=start_col + 5, value=date_pencairan_str)
+                    cell_tgl.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_tgl.border = thin_border
                     
-                    # Tanggal Jatuh Tempo (column H) - date format: 16-Dec-21
+                    # Tanggal Jatuh Tempo (column G) - date format
                     date_tempo_str = row['Tanggal Jatuh Tempo']
                     try:
                         date_obj = dt.strptime(date_tempo_str, '%m/%d/%Y')
                         cell_tgl2 = ws.cell(row=row_idx, column=start_col + 6, value=date_obj)
                         cell_tgl2.number_format = 'DD-MMM-YY'
                     except:
-                        ws.cell(row=row_idx, column=start_col + 6, value=date_tempo_str)
+                        cell_tgl2 = ws.cell(row=row_idx, column=start_col + 6, value=date_tempo_str)
+                    cell_tgl2.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_tgl2.border = thin_border
                     
-                    # Jk Waktu (column I)
-                    ws.cell(row=row_idx, column=start_col + 7, value=row['Jk Waktu'])
+                    # Jk Waktu (column H)
+                    cell_jk = ws.cell(row=row_idx, column=start_col + 7, value=row['Jk Waktu'])
+                    cell_jk.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_jk.border = thin_border
                     
-                    # Kol (column J)
-                    ws.cell(row=row_idx, column=start_col + 8, value=row['Kol'])
+                    # Kol (column I)
+                    cell_kol = ws.cell(row=row_idx, column=start_col + 8, value=row['Kol'])
+                    cell_kol.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_kol.border = thin_border
                     
-                    # Angsuran (column K) - number format
+                    # Angsuran (column J) - number format
                     angsuran_val = parse_indonesian_number(row['Angsuran'])
                     cell_angsuran = ws.cell(row=row_idx, column=start_col + 9, value=angsuran_val)
                     cell_angsuran.number_format = '#,##0'
+                    cell_angsuran.alignment = Alignment(horizontal='right', vertical='center')
+                    cell_angsuran.border = thin_border
                     
-                    # Apply borders to all cells in this row
-                    for col_idx in range(start_col, start_col + 10):
-                        ws.cell(row=row_idx, column=col_idx).border = thin_border
+                    # Jenis Penggunaan (column K) - NEW!
+                    jenis_penggunaan = row.get('Jenis Konsumsi', '')
+                    cell_jenis = ws.cell(row=row_idx, column=start_col + 10, value=jenis_penggunaan)
+                    cell_jenis.alignment = Alignment(horizontal='center', vertical='center')
+                    cell_jenis.border = thin_border
                 
-                # Total row
+                # Total row - MATCHING NEW SCREENSHOT
                 total_row = data_start_row + len(df)
-                total_fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")  # Gray (matching header)
+                total_fill = PatternFill(start_color="BFBFBF", end_color="BFBFBF", fill_type="solid")  # Gray (matching header)
                 total_font = Font(bold=True)
                 
-                # "Total" label (merge B and C)
-                ws.merge_cells(f'B{total_row}:C{total_row}')
+                # "Total" label (merge A and B)
+                ws.merge_cells(f'A{total_row}:B{total_row}')
                 cell_total_label = ws.cell(row=total_row, column=start_col)
                 cell_total_label.value = "Total"
                 cell_total_label.fill = total_fill
@@ -988,47 +1006,50 @@ def download_file(format):
                 cell_total_label.alignment = Alignment(horizontal='center', vertical='center')
                 cell_total_label.border = thin_border
                 
-                # Total Plafon (column D)
+                # Total Plafon (column C)
                 cell_total_plafon = ws.cell(row=total_row, column=start_col + 2, value=total_plafon)
                 cell_total_plafon.number_format = '#,##0'
                 cell_total_plafon.fill = total_fill
                 cell_total_plafon.font = total_font
+                cell_total_plafon.alignment = Alignment(horizontal='right', vertical='center')
                 cell_total_plafon.border = thin_border
                 
-                # Empty cells with yellow background (E, F, G, H, I, J)
-                for col_offset in [3, 4, 5, 6, 7, 8]:
+                # Empty cells with gray background (D=Yield, F=Tgl Pencairan, G=Tgl Jatuh Tempo, H=Jk Waktu, I=Kol, K=Jenis Penggunaan)
+                for col_offset in [3, 5, 6, 7, 8, 10]:
                     cell = ws.cell(row=total_row, column=start_col + col_offset)
                     cell.fill = total_fill
                     cell.border = thin_border
                 
-                # Total O/S (but left empty per screenshot - only Plafon and Angsuran have totals)
-                # Actually from screenshot, O/S also has total
+                # Total O/S (column E)
                 cell_total_os = ws.cell(row=total_row, column=start_col + 4, value=total_os)
                 cell_total_os.number_format = '#,##0'
                 cell_total_os.fill = total_fill
                 cell_total_os.font = total_font
+                cell_total_os.alignment = Alignment(horizontal='right', vertical='center')
                 cell_total_os.border = thin_border
                 
-                # Total Angsuran (column K)
+                # Total Angsuran (column J)
                 cell_total_angsuran = ws.cell(row=total_row, column=start_col + 9, value=total_angsuran)
                 cell_total_angsuran.number_format = '#,##0'
                 cell_total_angsuran.fill = total_fill
                 cell_total_angsuran.font = total_font
+                cell_total_angsuran.alignment = Alignment(horizontal='right', vertical='center')
                 cell_total_angsuran.border = thin_border
                 
-                # Adjust column widths
-                ws.column_dimensions['A'].width = 2
-                ws.column_dimensions['B'].width = 6
-                ws.column_dimensions['C'].width = 30
-                ws.column_dimensions['D'].width = 15
-                ws.column_dimensions['E'].width = 10
-                ws.column_dimensions['F'].width = 15
-                ws.column_dimensions['G'].width = 12
-                ws.column_dimensions['H'].width = 12
-                ws.column_dimensions['I'].width = 10
-                ws.column_dimensions['J'].width = 6
-                ws.column_dimensions['K'].width = 15
+                # Adjust column widths - MATCHING NEW SCREENSHOT
+                ws.column_dimensions['A'].width = 5    # No
+                ws.column_dimensions['B'].width = 30   # Nama Bank
+                ws.column_dimensions['C'].width = 15   # Plafon
+                ws.column_dimensions['D'].width = 10   # Yield
+                ws.column_dimensions['E'].width = 15   # O/S
+                ws.column_dimensions['F'].width = 18   # Tanggal Pencairan
+                ws.column_dimensions['G'].width = 18   # Tanggal Jatuh Tempo
+                ws.column_dimensions['H'].width = 10   # Jk Waktu
+                ws.column_dimensions['I'].width = 6    # Kol
+                ws.column_dimensions['J'].width = 15   # Angsuran
+                ws.column_dimensions['K'].width = 18   # Jenis Penggunaan
                 
+                # Save workbook
                 wb.save(output_path)
                 return send_file(output_path, as_attachment=True, download_name=f"{output_filename}.xlsx")
             
@@ -1050,8 +1071,8 @@ def download_file(format):
                     'Tanggal Jatuh Tempo': '',
                     'Jk Waktu': '',
                     'Kol': '',
-                    'Jenis Konsumsi': '',
-                    'Angsuran': format_indonesian_number(total_angsuran)
+                    'Angsuran': format_indonesian_number(total_angsuran),
+                    'Jenis Penggunaan': ''  # NEW: include for CSV export
                 }])
                 
                 df_with_total = pd.concat([df, total_row], ignore_index=True)

@@ -264,8 +264,8 @@ def process_bank_kalsel_pdf(filepath):
                                             else:
                                                 # Last resort: amount sign
                                                 transaction_type = 'Credit' if amount > 0 else 'Debit'
-
-# Create datetime
+                                        
+                                        # Create datetime
                                         datetime_obj = pd.to_datetime(f"{date_str} {time_formatted}", format='%d/%m/%Y %H:%M')
                                         
                                         output_data.append({

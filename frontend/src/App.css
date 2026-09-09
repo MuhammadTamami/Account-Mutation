@@ -567,12 +567,12 @@ body {
   margin-right: 8px;
 }
 
-/* On Going Section */
+/* Production Ready Section */
 .changelog-section.ongoing-section {
-  background: linear-gradient(135deg, rgba(255, 165, 0, 0.05), rgba(255, 215, 0, 0.03));
+  background: linear-gradient(135deg, rgba(0, 255, 100, 0.08), rgba(0, 200, 150, 0.05));
   padding: 15px;
   border-radius: 8px;
-  border: 1px dashed rgba(255, 165, 0, 0.3);
+  border: 1px solid rgba(0, 255, 100, 0.4);
 }
 
 .badge-ongoing {
@@ -586,14 +586,45 @@ body {
   margin-left: 8px;
 }
 
+.badge-ready {
+  background: linear-gradient(135deg, #00ff64, #00cc50);
+  color: #000;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+  animation: pulse-badge 2s infinite;
+}
+
 .feature-item-mini.ongoing {
   background: rgba(255, 165, 0, 0.08);
   border-left-color: #ff9500;
   border-left-width: 3px;
 }
 
+.feature-item-mini.ready {
+  background: rgba(0, 255, 100, 0.1);
+  border-left-color: #00ff64;
+  border-left-width: 3px;
+}
+
 .feature-item-mini.ongoing strong {
   color: #ffb700;
+}
+
+.feature-item-mini.ready strong {
+  color: #00ff64;
+  font-size: 0.9rem;
+}
+
+.bot-features {
+  margin-top: 8px;
+  font-size: 0.7rem !important;
+  color: rgba(180, 255, 180, 0.8) !important;
+  font-weight: 500;
+  line-height: 1.6;
 }
 
 .ongoing-note {
@@ -606,6 +637,19 @@ body {
 
 .ongoing-note small {
   color: rgba(255, 200, 100, 0.8);
+  font-size: 0.7rem;
+}
+
+.ready-note {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(0, 255, 100, 0.08);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.ready-note small {
+  color: rgba(100, 255, 150, 0.9);
   font-size: 0.7rem;
 }
 
@@ -731,6 +775,24 @@ body {
   background: rgba(255, 149, 0, 0.1);
   padding: 2px 8px;
   border-radius: 4px;
+}
+
+.footer-bot-status .status-live {
+  color: #00ff64;
+  font-weight: 700;
+  background: rgba(0, 255, 100, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+  animation: pulse-status 2s infinite;
+}
+
+@keyframes pulse-status {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .footer-tagline {
