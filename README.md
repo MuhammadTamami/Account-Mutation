@@ -1,23 +1,44 @@
-# 🏦 Bank Statement Converter
+# 🏦 MUTREK - Bank Statement Converter
 
-![Version](https://img.shields.io/badge/version-2.1.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.2.0-brightgreen)
 ![Status](https://img.shields.io/badge/status-stable-blue)
-![Banks](https://img.shields.io/badge/banks-6-orange)
+![Banks](https://img.shields.io/badge/banks-7+-orange)
+![Bot](https://img.shields.io/badge/bot-telegram_live-green)
 
-Aplikasi web untuk mengkonversi rekening koran dari **multiple banks** ke format Excel yang rapi dan terstruktur dengan akurasi tinggi.
+Aplikasi web untuk mengkonversi rekening koran dari **multiple banks** ke format Excel yang rapi dan terstruktur dengan akurasi tinggi. Dilengkapi dengan **Bot Telegram** untuk processing otomatis!
 
-## 🎉 What's New in v2.1.0
+## 🎉 What's New in v2.2.0
 
-### Balance-Based Detection ✨
+### 💰 Angsuran / Proyeksi KOP
+- **Batch Excel Upload**: Upload banyak file Excel angsuran sekaligus
+- **Filter Periode**: Filter per bulan & tahun (optional)
+- **Auto Calculate**: Outstanding, porsi pokok & margin otomatis terhitung
+- **Export Excel**: Format khusus untuk proyeksi KOP
+
+### 📂 Smart Output Naming
+- Output file otomatis dibedakan:
+  - `daily_balance_*.xlsx` - Untuk cek saldo terakhir
+  - `ideb_slik_*.xlsx` - Untuk IDEB SLIK analyzer
+  - `angsuran_kop_*.xlsx` - Untuk proyeksi angsuran
+  - `full_scan_*.xlsx` - Untuk full analysis
+- Tidak ada prefix "bank_statement" lagi (lebih clean!)
+
+### 🤖 Bot Telegram MURENA
+- **Status**: ✅ **LIVE & Running!**
+- **Username**: `@murenabank_bot`
+- **Features**:
+  - Upload mutrek langsung dari Telegram
+  - Auto-processing 7+ bank formats
+  - Download hasil Excel/CSV via bot
+  - Support all modes: Full Scan, Daily Balance, IDEB SLIK, Angsuran KOP
+- **Access**: Hubungi admin untuk mendapatkan akses bot
+
+### Previous Updates (v2.1.0)
+
+**Balance-Based Detection ✨**
 - **100% Accurate Mutation Statistics**: Semua transaksi (monthly fee, admin fee, tax, dll) PASTI terdeteksi sebagai Debit/Kredit
 - **No More Keyword Dependency**: Detection tidak lagi bergantung pada keyword di deskripsi
 - **Applied to**: Bank Kalsel, Mandiri, BSI, and BRI processors
-
-**Problem Solved**: 
-- ❌ Before: Monthly fees sometimes missed → Mutation stats incomplete
-- ✅ After: ALL transactions captured → 100% accurate stats
-
-**Technical**: Balance comparison (current vs previous) determines Debit/Kredit automatically.
 
 [See full changelog](CHANGELOG.md)
 
@@ -30,26 +51,38 @@ Aplikasi web untuk mengkonversi rekening koran dari **multiple banks** ke format
 - ✅ **BNI** - Transaction Inquiry PDF
 - ✅ **BCA** - Rekening Tahapan PDF
 - ✅ **Bank Kalsel** - Mutasi Rekening PDF
+- ✅ **Byond** - Mutasi Rekening format
 - 🔄 **More banks coming soon!**
 
 ### 📁 Format yang Didukung
 - ✅ **CSV** (.csv) - BSI format - Akurasi 100%
 - ✅ **PDF** (.pdf) - Multiple banks - Akurasi 95-100%
-- 🆕 **Excel** (.xlsx, .xls) - Akurasi 100%
-- 🆕 **Image** (.jpg, .png) - Any bank dengan OCR - Akurasi 70-90%
+- ✅ **Excel** (.xlsx, .xls) - Multiple formats - Akurasi 100%
+- ✅ **Image** (.jpg, .png) - Any bank dengan OCR - Akurasi 70-90%
+
+### 🎯 Mode Processing
+1. **📊 Full Scan Mutrek** - Analisis lengkap semua transaksi dengan breakdown per bulan
+2. **📅 Cek Saldo Terakhir** - Monitor saldo akhir hari untuk tracking harian (daily balance)
+3. **📋 IDEB SLIK Analyzer** - Analisis data kredit/pinjaman dari IDEB SLIK (Baki Debet > 0)
+4. **💰 Angsuran / Proyeksi KOP** - Upload batch Excel angsuran, filter & generate proyeksi
 
 ### 🎯 Fitur Utama
+- ✅ **4 Processing Modes** - Full Scan, Daily Balance, IDEB SLIK, Angsuran KOP
 - ✅ **Smart Auto-detect** - Otomatis detect bank dari konten file, bukan dari nama file
-- ✅ **Multi-bank Support** - 6 bank supported dengan 1 aplikasi
+- ✅ **Multi-bank Support** - 7+ bank supported dengan 1 aplikasi
 - ✅ **Password Protected PDF** - Support Mandiri PDF dengan password
 - ✅ **Batch Upload** - Upload sampai 100 file sekaligus
-- ✅ **GUI berbasis Web** - Modern, responsive, dark theme
+- ✅ **Batch Angsuran** - Upload multiple Excel untuk proyeksi KOP
+- ✅ **Filter Periode** - Filter transaksi per bulan & tahun untuk angsuran
+- ✅ **Bot Telegram** - Processing via @murenabank_bot (LIVE!)
+- ✅ **GUI berbasis Web** - Modern, responsive, dark theme dengan animated 3D background
 - ✅ **Copy langsung dari web** - Klik button, paste ke Excel (super cepat!)
 - ✅ **Saldo harian akurat** - Berdasarkan timestamp
 - ✅ **Summary extraction** - Extract langsung dari PDF summary
 - ✅ **Monthly breakdown** - Total amount & frequency per bulan dengan filter
 - ✅ **Format angka custom** - Koma untuk thousands dan decimal (337,313,654,34)
 - ✅ **Download dengan summary** - Excel include Total Mutasi Debit/Kredit/Saldo
+- ✅ **Smart Output Naming** - Output dibedakan per mode (daily_balance, ideb_slik, angsuran_kop, full_scan)
 - ✅ Tampilkan semua data di web
 - ✅ Ringkasan statistik transaksi
 - ✅ UI modern dan user-friendly
@@ -117,18 +150,58 @@ Frontend akan berjalan di `http://localhost:3000` dan otomatis membuka browser.
 
 ## 📖 Cara Penggunaan
 
-1. **Upload File**: Drag & drop atau klik "Pilih File"
+### 🖥️ Via Web App
+
+1. **Pilih Mode Processing**:
+   - 📊 **Full Scan** - Analisis lengkap semua transaksi
+   - 📅 **Cek Saldo** - Daily balance untuk tracking harian
+   - 📋 **IDEB SLIK** - Analisis kredit dengan Baki Debet > 0
+   - 💰 **Angsuran KOP** - Proyeksi angsuran batch Excel
+
+2. **Upload File**: Drag & drop atau klik "Upload File"
    - BSI CSV (.csv)
-   - Mandiri PDF (.pdf)
+   - Mandiri/BRI/BNI/BCA/Bank Kalsel PDF (.pdf)
+   - Excel angsuran (.xlsx) - untuk mode Angsuran
    - Bank statement image (.jpg, .png)
-2. **Auto-detect**: Aplikasi otomatis detect jenis file
-3. **Proses**: Klik tombol "🚀 Upload & Proses"
-4. **Lihat Hasil**:
+
+3. **Filter (Opsional untuk Angsuran)**:
+   - Pilih bulan & tahun
+   - Atau "Semua" untuk tidak filter
+
+4. **Auto-detect**: Aplikasi otomatis detect jenis file dan bank
+
+5. **Proses**: Klik tombol "Proses X File"
+
+6. **Lihat Hasil**:
    - Ringkasan data dengan badge (PDF Summary / Calculated)
    - Saldo harian (filter per bulan tersedia)
    - Breakdown bulanan (total amount + frequency)
-5. **Copy ke Excel**: Klik tombol "📋 Copy Saldo Harian" lalu paste (Ctrl+V) di Excel
-6. **Atau Download**: Pilih format download (Excel atau CSV) jika ingin simpan file
+   - Tabel transaksi lengkap
+
+7. **Copy ke Excel**: Klik tombol "📋 Copy Saldo Harian" lalu paste (Ctrl+V) di Excel
+
+8. **Atau Download**: Pilih format download (Excel atau CSV) dengan smart naming:
+   - `daily_balance_20260914_123456.xlsx`
+   - `ideb_slik_20260914_123456.xlsx`
+   - `angsuran_kop_20260914_123456.xlsx`
+   - `full_scan_20260914_123456.xlsx`
+
+### 🤖 Via Bot Telegram
+
+1. **Cari bot**: `@murenabank_bot`
+2. **Start bot**: `/start`
+3. **Upload file**: Kirim file mutrek (PDF/CSV/Excel/Image)
+4. **Pilih mode**: Full Scan / Daily Balance / IDEB SLIK / Angsuran
+5. **Tunggu proses**: Bot akan processing otomatis
+6. **Download hasil**: Bot kirim file Excel/CSV hasil processing
+
+**Keunggulan Bot:**
+- ⚡ Processing dari mana saja
+- 📱 Langsung dari HP
+- 🔄 Auto-processing 7+ bank
+- 📥 Download hasil langsung
+
+**Access**: Hubungi admin untuk mendapatkan akses bot
 
 ### 💡 Keunggulan Copy dari Web
 
@@ -157,28 +230,47 @@ Upload → Proses → Copy → Paste ke Excel → SELESAI! (10 detik)
 ## 📁 Struktur Folder
 
 ```
-BSI Excel Convert/
+MUTREK/
 ├── backend/
 │   ├── processors/
 │   │   ├── __init__.py
-│   │   ├── bsi_processor.py      # Processor untuk BSI CSV
-│   │   ├── mandiri_processor.py  # Processor untuk Mandiri PDF
-│   │   └── image_processor.py    # Processor untuk Image OCR 🆕
-│   ├── uploads/                   # Folder temporary upload
-│   ├── outputs/                   # Folder hasil konversi
-│   ├── app.py                     # Flask backend server
-│   └── requirements.txt           # Python dependencies 🆕
+│   │   ├── bsi_processor.py         # Processor untuk BSI CSV
+│   │   ├── mandiri_processor.py     # Processor untuk Mandiri PDF
+│   │   ├── bri_processor.py         # Processor untuk BRI PDF
+│   │   ├── bni_processor.py         # Processor untuk BNI PDF
+│   │   ├── bca_processor.py         # Processor untuk BCA PDF
+│   │   ├── bank_kalsel_processor.py # Processor untuk Bank Kalsel PDF
+│   │   ├── angsuran_processor.py    # Processor untuk Angsuran Excel 🆕
+│   │   └── image_processor.py       # Processor untuk Image OCR
+│   ├── uploads/                      # Folder temporary upload
+│   ├── outputs/                      # Folder hasil konversi
+│   ├── bot_temp/                     # Folder temporary bot telegram
+│   ├── app.py                        # Flask backend server
+│   ├── bot_telegram.py               # Telegram bot script 🆕
+│   └── requirements.txt              # Python dependencies
 ├── frontend/
 │   ├── public/
 │   │   └── index.html
 │   ├── src/
-│   │   ├── App.js                # Main React component
-│   │   ├── App.css               # Styling
+│   │   ├── App.js                   # Main React component (Updated UI)
+│   │   ├── App.css                  # Styling (3D animated background)
 │   │   ├── index.js
 │   │   └── index.css
 │   └── package.json
-├── requirements.txt              # Python dependencies
-└── README.md
+├── test_data/                        # Sample data untuk testing
+│   ├── bsi/
+│   ├── mandiri/
+│   ├── bri/
+│   ├── bni/
+│   ├── bca/
+│   ├── bank_kalsel/
+│   └── angsuran/                     # Excel angsuran samples 🆕
+├── requirements.txt                  # Python dependencies
+├── requirements_bot.txt              # Bot telegram dependencies 🆕
+├── README.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+└── QUICKSTART.md
 ```
 
 ## 🔍 Format Input
@@ -328,10 +420,42 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
 **Rekomendasi:** Gunakan CSV atau PDF untuk akurasi terbaik.
 
-## 🎯 Recent Updates (v2.0.0)
+## 🎯 Recent Updates
 
-### ✅ What's New:
-1. **Multi-Bank Support** - 6 banks: BSI, Mandiri, BRI, BNI, BCA, Bank Kalsel
+### v2.2.0 (September 2026)
+1. **Angsuran / Proyeksi KOP** 💰
+   - Upload batch Excel angsuran
+   - Filter per bulan/tahun (optional)
+   - Auto-calculate outstanding, pokok & margin
+   - Export format khusus KOP
+
+2. **Smart Output Naming** 📂
+   - `daily_balance_*.xlsx` - Cek saldo mode
+   - `ideb_slik_*.xlsx` - IDEB mode
+   - `angsuran_kop_*.xlsx` - Angsuran mode
+   - `full_scan_*.xlsx` - Full scan mode
+
+3. **Bot Telegram MURENA** 🤖
+   - Status: ✅ LIVE & Running
+   - Username: @murenabank_bot
+   - Auto-processing 7+ banks
+   - All modes supported
+
+4. **UI Improvements** 🎨
+   - 3D animated background (grid lines, floating docs, particles)
+   - Separate cards: Bot Telegram & Changelog
+   - Better layout structure
+   - Upload modal with drag & drop
+   - No more card overlap on scroll
+
+### v2.1.0 (September 2026)
+1. **Balance-Based Detection** ✨
+   - 100% accurate mutation statistics
+   - No keyword dependency
+   - Applied to Bank Kalsel, Mandiri, BSI, BRI
+
+### v2.0.0
+1. **Multi-Bank Support** - 6+ banks: BSI, Mandiri, BRI, BNI, BCA, Bank Kalsel, Byond
 2. **Smart Detection** - Detect bank dari konten file, bukan nama file
 3. **BRI e-Statement** - Support BRI BRImo PDF format
 4. **BNI Transaction Inquiry** - Support BNI PDF format
@@ -343,7 +467,10 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 10. **Excel Summary** - Download include Total Mutasi Debit/Kredit/Saldo
 11. **PyMuPDF Fallback** - Complex PDF handled automatically
 
-### 🐛 Bug Fixes:
+### 🐛 Bug Fixes (Recent):
+- ✅ Fixed: Duplicate `parseIndonesianNumber` function error
+- ✅ Fixed: Upload modal tidak muncul saat klik button
+- ✅ Fixed: Card overlap on scroll (Bot & Changelog)
 - ✅ Fixed: Error 500 saat upload BSI CSV
 - ✅ Fixed: BRI detection conflict dengan Mandiri
 - ✅ Fixed: BCA complex PDF parsing (71 pages)

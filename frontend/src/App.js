@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 import { showCompatibilityWarning, debugBrowserInfo } from './utils/browserCheck';
@@ -7,12 +7,16 @@ const API_URL = 'http://localhost:5000';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home'); // 'home' or 'results'
-  const [uploadMode, setUploadMode] = useState(null); // 'full' or 'daily'
+  const [uploadMode, setUploadMode] = useState(null); // 'full', 'daily', 'ideb', 'angsuran'
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  
+  // Angsuran filters
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
   
   // Results data
   const [allData, setAllData] = useState(null);
@@ -118,6 +122,50 @@ function App() {
 
     const formData = new FormData();
     
+    // Check if Angsuran mode (batch upload)
+    if (uploadMode === 'angsuran') {
+      // Add all files for batch processing
+      selectedFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      
+      // Add filter parameters
+      if (filterMonth && filterMonth !== 'all') {
+        formData.append('filterMonth', filterMonth);
+      }
+      if (filterYear && filterYear !== 'all') {
+        formData.append('filterYear', filterYear);
+      }
+      
+      try {
+        const response = await axios.post(`${API_URL}/api/upload-angsuran`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        // Set Angsuran data
+        setAllData(response.data.data);
+        setDailyBalance([]);
+        setMonthlySummary([]);
+        setSummary(response.data.summary);
+        setTempFile(response.data.tempFile);
+        setAccountInfo(null);
+        setUploadMode('angsuran');
+        
+        setCurrentPage('results');
+        setShowUploadModal(false);
+        
+      } catch (err) {
+        setError(err.response?.data?.error || 'Terjadi kesalahan saat memproses file');
+      } finally {
+        setLoading(false);
+      }
+      
+      return;
+    }
+    
+    // Normal processing (non-Angsuran)
     if (selectedFiles.length === 1) {
       formData.append('file', selectedFiles[0]);
     } else {
@@ -169,12 +217,19 @@ function App() {
 
     setLoading(true);
     try {
+      let downloadUrl = `${API_URL}/api/download/${format}`;
+      
+      // Use different endpoint for Angsuran
+      if (uploadMode === 'angsuran') {
+        downloadUrl = `${API_URL}/api/download-angsuran/${format}`;
+      }
+      
       const response = await axios.post(
-        `${API_URL}/api/download/${format}`,
+        downloadUrl,
         { 
           tempFile,
-          mode: uploadMode,  // Send mode to backend
-          filters: {         // Send filter parameters
+          mode: uploadMode,
+          filters: {
             month: selectedMonth,
             dateStart: dateFilter.start,
             dateEnd: dateFilter.end
@@ -450,26 +505,115 @@ function App() {
                   Upload IDEB
                 </button>
               </div>
+
+              {/* Card 4: Angsuran */}
+              <div className="feature-card">
+                <div className="card-icon">💰</div>
+                <h3 className="card-title">Angsuran / Proyeksi KOP</h3>
+                <p className="card-description">
+                  Upload batch file angsuran (Excel), filter per bulan/tahun, dan generate proyeksi KOP
+                </p>
+                
+                <div className="card-tutorial">
+                  <h4>📝 Cara Pakai:</h4>
+                  <ol>
+                    <li>Klik button "Upload Angsuran"</li>
+                    <li>Pilih MULTIPLE file Excel (batch)</li>
+                    <li>Set filter bulan & tahun (optional)</li>
+                    <li>Klik "Proses" dan lihat proyeksi</li>
+                    <li>Download Excel/CSV hasil proyeksi</li>
+                  </ol>
+                </div>
+
+                <button 
+                  className="card-action-btn"
+                  onClick={() => handleOpenUpload('angsuran')}
+                >
+                  <span className="btn-icon">📤</span>
+                  Upload Angsuran (Batch)
+                </button>
+              </div>
             </div>
 
             {/* Right Column: Latest Features */}
             <div className="features-column">
+              {/* Bot Telegram Info Card - Pindah ke atas */}
+              <div className="latest-features-card bot-info-card">
+                <h3 className="section-title">
+                  <span className="badge-ready">LIVE</span>
+                  Bot Telegram
+                </h3>
+                
+                <div className="bot-telegram-section">
+                  <div className="feature-item-mini ready">
+                    <span className="feature-icon-mini">🤖</span>
+                    <div>
+                      <strong>MURENA - Auto Processing Bot</strong>
+                      <p>Upload mutrek langsung dari Telegram, auto-processing 7+ bank, download hasil Excel/CSV via bot</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bot-features-grid">
+                    <div className="bot-feature-badge">
+                      <span>📊</span>
+                      <small>Full Scan</small>
+                    </div>
+                    <div className="bot-feature-badge">
+                      <span>�</span>
+                      <small>Daily Balance</small>
+                    </div>
+                    <div className="bot-feature-badge">
+                      <span>📋</span>
+                      <small>IDEB SLIK</small>
+                    </div>
+                    <div className="bot-feature-badge">
+                      <span>💰</span>
+                      <small>Angsuran KOP</small>
+                    </div>
+                  </div>
+                  
+                  <div className="bot-cta">
+                    <p className="bot-username">@murenabank_bot</p>
+                    <small>Hubungi admin untuk akses bot</small>
+                  </div>
+                </div>
+              </div>
+
+              {/* Changelog Card - Sekarang di bawah bot card */}
               <div className="latest-features-card">
                 <h3 className="section-title">
-                  <span className="badge-new">v2.1.0</span>
+                  <span className="badge-new">v2.2.0</span>
                   Changelog & Fitur Terbaru
                 </h3>
                 
                 <div className="changelog-section">
-                  <h4 className="changelog-version">🎉 Version 2.1.0 (Sep 2026)</h4>
+                  <h4 className="changelog-version">🎉 Version 2.2.0 (Sep 2026)</h4>
                   <div className="feature-item-mini highlight">
+                    <span className="feature-icon-mini">💰</span>
+                    <div>
+                      <strong>Angsuran / Proyeksi KOP</strong>
+                      <p>Upload batch Excel angsuran, filter per bulan/tahun, auto-calculate outstanding, porsi pokok & margin. Export ke Excel format KOP</p>
+                    </div>
+                  </div>
+                  <div className="feature-item-mini highlight">
+                    <span className="feature-icon-mini">📂</span>
+                    <div>
+                      <strong>Smart Output Naming</strong>
+                      <p>Output file otomatis dibedakan: daily_balance, ideb_slik, angsuran_kop, full_scan (tidak ada prefix "bank_statement" lagi)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="changelog-section">
+                  <h4 className="changelog-version">🎯 Version 2.1.0 (Sep 2026)</h4>
+                  <div className="feature-item-mini">
                     <span className="feature-icon-mini">✨</span>
                     <div>
                       <strong>Balance-Based Detection</strong>
                       <p>Semua transaksi (monthly fee, admin fee, tax, dll) PASTI terdeteksi sebagai Debit/Kredit tanpa bergantung keyword</p>
                     </div>
                   </div>
-                  <div className="feature-item-mini highlight">
+                  <div className="feature-item-mini">
                     <span className="feature-icon-mini">📊</span>
                     <div>
                       <strong>100% Accurate Mutation Stats</strong>
@@ -478,129 +622,57 @@ function App() {
                   </div>
                 </div>
 
-                <div className="changelog-section ongoing-section">
-                  <h4 className="changelog-version">
-                    ✅ Production Ready
-                    <span className="badge-ready">LIVE</span>
-                  </h4>
-                  <div className="feature-item-mini ready">
-                    <span className="feature-icon-mini">🤖</span>
-                    <div>
-                      <strong>Bot Telegram - MURENA</strong>
-                      <p>Upload mutrek langsung dari Telegram, auto-processing 7+ bank, download hasil Excel/CSV via bot</p>
-                      <p className="bot-features">
-                        ✓ Full Scan (semua transaksi) | ✓ Daily Balance (saldo harian + statistik) | ✓ IDEB SLIK (analisis kredit)
-                      </p>
-                    </div>
-                  </div>
-                  <div className="ready-note">
-                    <small>🎉 <em>Bot sudah aktif! Hubungi admin untuk akses (@murenabank_bot)</em></small>
-                  </div>
-                </div>
-
                 <div className="changelog-section">
                   <h4 className="changelog-version">Version 2.0.0</h4>
-                  <div className="features-list">
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">🏦</span>
-                      <div>
-                        <strong>Multi-Bank Support</strong>
-                        <p>BSI, Mandiri, BCA, BRI, BNI, Bank Kalsel</p>
-                      </div>
+                  <div className="feature-item-mini">
+                    <span className="feature-icon-mini">🏦</span>
+                    <div>
+                      <strong>Multi-Bank Support</strong>
+                      <p>BSI, Mandiri, BCA, BRI, BNI, Bank Kalsel</p>
                     </div>
-
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">📋</span>
-                      <div>
-                        <strong>IDEB SLIK Analyzer</strong>
-                        <p>Analisis kredit/pinjaman (Baki Debet &gt; 0)</p>
-                      </div>
+                  </div>
+                  <div className="feature-item-mini">
+                    <span className="feature-icon-mini">📋</span>
+                    <div>
+                      <strong>IDEB SLIK Analyzer</strong>
+                      <p>Analisis kredit/pinjaman (Baki Debet &gt; 0)</p>
                     </div>
-
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">📄</span>
-                      <div>
-                        <strong>Multi-Format</strong>
-                        <p>CSV, PDF, Excel, Image (OCR)</p>
-                      </div>
-                    </div>
-
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">🔍</span>
-                      <div>
-                        <strong>Smart Filter Download</strong>
-                        <p>Download sesuai filter aktif</p>
-                      </div>
-                    </div>
-
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">📊</span>
-                      <div>
-                        <strong>Statistik Real-time</strong>
-                        <p>Filter per bulan & tanggal</p>
-                      </div>
-                    </div>
-
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">📤</span>
-                      <div>
-                        <strong>Batch Upload</strong>
-                        <p>Hingga 100 file sekaligus</p>
-                      </div>
-                    </div>
-
-                    <div className="feature-item-mini">
-                      <span className="feature-icon-mini">🔐</span>
-                      <div>
-                        <strong>Password-Protected PDF</strong>
-                        <p>Mandiri e-Statement dengan password</p>
-                      </div>
+                  </div>
+                  <div className="feature-item-mini">
+                    <span className="feature-icon-mini">📄</span>
+                    <div>
+                      <strong>Multi-Format</strong>
+                      <p>CSV, PDF, Excel, Image (OCR)</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Section: Info & Spesifikasi */}
-          <div className="info-specs-section">
-            <h3 className="section-title">📋 Informasi & Spesifikasi</h3>
-            
-            <div className="specs-grid">
-              <div className="spec-card">
-                <h4>🏦 Bank yang Didukung</h4>
-                <p>BSI • Mandiri • BCA • BRI • BNI • Bank Kalsel</p>
-                <span className="spec-badge">6 Banks + Auto-detect</span>
-              </div>
+            {/* Info & Specs Section */}
+            <div className="info-specs-section">
+              <h3 className="section-title">
+                💡 Informasi & Spesifikasi
+              </h3>
+              
+              <div className="specs-grid">
+                <div className="spec-card">
+                  <h4>🏦 Bank Support</h4>
+                  <p>BSI, Mandiri, BCA, BRI, BNI, Bank Kalsel, Byond</p>
+                  <span className="spec-badge">7+ Banks</span>
+                </div>
 
-              <div className="spec-card">
-                <h4>📋 IDEB SLIK</h4>
-                <p>Analisis kredit/pinjaman • Filter Baki Debet &gt; 0</p>
-                <span className="spec-badge">NEW!</span>
-              </div>
+                <div className="spec-card">
+                  <h4>📄 Format Support</h4>
+                  <p>CSV, PDF (native & scan), Excel (.xlsx), Image (JPG, PNG)</p>
+                  <span className="spec-badge">Multi-Format</span>
+                </div>
 
-              <div className="spec-card">
-                <h4>💾 Format File</h4>
-                <p>CSV • PDF • Excel • Image (OCR)</p>
-                <span className="spec-badge">All formats</span>
-              </div>
-
-              <div className="spec-card">
-                <h4>⚙️ Limit & Batasan</h4>
-                <p>Max 20MB per file • Max 100 files batch</p>
-                <span className="spec-badge">Fast processing</span>
-              </div>
-
-              <div className="spec-card">
-                <h4>📊 Fitur Analisis</h4>
-                <p>Statistik • Filter • Export • Monthly Summary</p>
-                <span className="spec-badge">Real-time</span>
-              </div>
-
-              <div className="spec-card">
-                <h4>🔒 Keamanan</h4>
-                <p>Proses lokal • No cloud storage • Private</p>
-                <span className="spec-badge">100% Secure</span>
+                <div className="spec-card">
+                  <h4>📊 Output Options</h4>
+                  <p>Excel (.xlsx) dengan formatting custom, CSV untuk data mentah</p>
+                  <span className="spec-badge">Flexible</span>
+                </div>
               </div>
             </div>
           </div>
@@ -611,13 +683,14 @@ function App() {
           <div className="footer-content">
             <div className="footer-brand">
               <h3>MUTREK</h3>
-              <p>Analisis Mutasi Rekening</p>
+              <p>Bank Statement Processor</p>
             </div>
             <div className="footer-info">
-              <p>© 2026 Tama. All rights reserved.</p>
-              <p className="footer-version">Version 2.1.0 - Balance-Based Detection</p>
-              <p className="footer-bot-status">🤖 Bot Telegram MURENA: <span className="status-live">✅ LIVE & Running</span></p>
-              <p className="footer-tagline">Built with 💚 for better financial tracking</p>
+              <p className="footer-version">Version 2.2.0</p>
+              <p className="footer-bot-status">
+                Bot Status: <span className="status-live">LIVE</span>
+              </p>
+              <p className="footer-tagline">Developed with 💚 for Indonesian Banks</p>
             </div>
           </div>
         </footer>
@@ -630,6 +703,7 @@ function App() {
                 <h3>
                   {uploadMode === 'full' ? '📊 Upload untuk Full Scan' : 
                    uploadMode === 'ideb' ? '📋 Upload IDEB SLIK PDF' : 
+                   uploadMode === 'angsuran' ? '💰 Upload Angsuran (Batch Excel)' :
                    '📅 Upload untuk Cek Saldo'}
                 </h3>
                 <button className="modal-close" onClick={handleCloseModal}>×</button>
@@ -662,6 +736,52 @@ function App() {
                     </p>
                   </div>
                 </div>
+
+                {/* Filter untuk Angsuran */}
+                {uploadMode === 'angsuran' && (
+                  <div className="angsuran-filters">
+                    <h4>Filter Periode (Optional)</h4>
+                    <div className="filter-row">
+                      <div className="filter-group">
+                        <label>Bulan:</label>
+                        <select 
+                          className="filter-select"
+                          value={filterMonth}
+                          onChange={(e) => setFilterMonth(e.target.value)}
+                        >
+                          <option value="all">Semua Bulan</option>
+                          <option value="1">Januari</option>
+                          <option value="2">Februari</option>
+                          <option value="3">Maret</option>
+                          <option value="4">April</option>
+                          <option value="5">Mei</option>
+                          <option value="6">Juni</option>
+                          <option value="7">Juli</option>
+                          <option value="8">Agustus</option>
+                          <option value="9">September</option>
+                          <option value="10">Oktober</option>
+                          <option value="11">November</option>
+                          <option value="12">Desember</option>
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Tahun:</label>
+                        <select 
+                          className="filter-select"
+                          value={filterYear}
+                          onChange={(e) => setFilterYear(e.target.value)}
+                        >
+                          <option value="all">Semua Tahun</option>
+                          <option value="2024">2024</option>
+                          <option value="2025">2025</option>
+                          <option value="2026">2026</option>
+                          <option value="2027">2027</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {selectedFiles.length > 0 && (
                   <div className="selected-files-box">
@@ -710,7 +830,6 @@ function App() {
     );
   }
 
-  // RESULTS PAGE
   return (
     <div className="App results-page">
       {/* Animated 3D Background */}
@@ -745,6 +864,7 @@ function App() {
         <h2 className="results-title">
           {uploadMode === 'full' ? '📊 Hasil Full Scan' : 
            uploadMode === 'ideb' ? '📋 Hasil IDEB SLIK' : 
+           uploadMode === 'angsuran' ? '💰 Hasil Proyeksi Angsuran' :
            '📅 Hasil Cek Saldo'}
         </h2>
 
@@ -780,6 +900,7 @@ function App() {
                 <h3 className="result-card-title">
                   {uploadMode === 'full' ? '📋 Data Transaksi' : 
                    uploadMode === 'ideb' ? '💳 Data Kredit/Pinjaman' : 
+                   uploadMode === 'angsuran' ? '💰 Proyeksi Angsuran' :
                    '💰 Saldo Harian'}
                 </h3>
                 
@@ -800,7 +921,37 @@ function App() {
               </div>
 
               <div className="table-scroll">
-                {uploadMode === 'ideb' && allData ? (
+                {uploadMode === 'angsuran' && allData ? (
+                  // Angsuran Table
+                  <table className="results-table">
+                    <thead>
+                      <tr>
+                        <th className="text-center">No</th>
+                        <th>Fasilitas Pembiayaan</th>
+                        <th className="text-right">Plafon</th>
+                        <th className="text-right">Outstanding</th>
+                        <th>Periode</th>
+                        <th className="text-right">Porsi Pokok</th>
+                        <th className="text-right">Porsi Margin</th>
+                        <th className="text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allData.map((row, idx) => (
+                        <tr key={idx}>
+                          <td className="text-center">{row.No}</td>
+                          <td>{row['Fasilitas Pembiayaan']}</td>
+                          <td className="text-right">{row.Plafon}</td>
+                          <td className="text-right">{row.Outstanding}</td>
+                          <td>{row.Periode}</td>
+                          <td className="text-right">{row['Porsi Pokok']}</td>
+                          <td className="text-right">{row['Porsi Margin']}</td>
+                          <td className="text-right">{row.Total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : uploadMode === 'ideb' && allData ? (
                   // IDEB SLIK Table
                   <table className="results-table">
                     <thead>
@@ -904,8 +1055,8 @@ function App() {
 
           {/* Right: Filters & Stats */}
           <div className="results-sidebar">
-            {/* Filters - Hide for IDEB mode */}
-            {uploadMode !== 'ideb' && (
+            {/* Filters - Hide for IDEB and Angsuran mode */}
+            {uploadMode !== 'ideb' && uploadMode !== 'angsuran' && (
               <div className="result-card filter-card">
                 <h3 className="result-card-title">🔍 Filter</h3>
               
@@ -955,8 +1106,8 @@ function App() {
             </div>
             )}
 
-            {/* Statistics - Hide for IDEB mode */}
-            {allData && uploadMode !== 'ideb' && (
+            {/* Statistics - Hide for IDEB and Angsuran mode */}
+            {allData && uploadMode !== 'ideb' && uploadMode !== 'angsuran' && (
               <div className="result-card stats-card">
                 <h3 className="result-card-title">📈 Statistik</h3>
                 

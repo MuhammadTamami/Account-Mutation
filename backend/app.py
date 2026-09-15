@@ -12,6 +12,7 @@ from processors.bni_processor import process_bni_file
 from processors.bank_kalsel_processor import process_bank_kalsel_file
 from processors.byond_processor import process_byond_file
 from processors.ideb_processor import process_ideb_file
+from processors.angsuran_processor import process_angsuran_batch, export_to_excel_angsuran
 
 # Try to import image processor, but don't fail if not available
 try:
@@ -1145,7 +1146,7 @@ def download_file(format):
             df = daily_df[['Tanggal', 'Balance']].copy()
             df.columns = ['Tanggal', 'Saldo']
         
-        # Generate output filename with filter info
+        # Generate output filename with filter info (NO "bank_statement_" prefix)
         mode_label = 'full_scan' if mode == 'full' else 'daily_balance'
         filter_label = ''
         
@@ -1156,7 +1157,7 @@ def download_file(format):
             elif filters.get('dateStart') or filters.get('dateEnd'):
                 filter_label = '_filtered'
         
-        output_filename = f"bank_statement_{mode_label}{filter_label}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        output_filename = f"{mode_label}{filter_label}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
         if format == 'excel':
             output_path = os.path.join(OUTPUT_FOLDER, f"{output_filename}.xlsx")
@@ -1469,5 +1470,198 @@ def download_file(format):
 def health():
     return jsonify({'status': 'ok'})
 
+
+@app.route('/api/upload-angsuran', methods=['POST'])
+def upload_angsuran():
+    """
+    Upload and process batch Angsuran files
+    Expects multiple Excel files with loan installment schedules
+    """
+    try:
+        # Check if files exist
+        if 'files' not in request.files:
+            return jsonify({'error': 'No files provided'}), 400
+        
+        files = request.files.getlist('files')
+        
+        if len(files) == 0:
+            return jsonify({'error': 'No files selected'}), 400
+        
+        # Get filter parameters
+        filter_month = request.form.get('filterMonth')  # Optional: 1-12
+        filter_year = request.form.get('filterYear')    # Optional: e.g. 2026
+        
+        # Convert to int if provided
+        if filter_month and filter_month != 'all':
+            filter_month = int(filter_month)
+        else:
+            filter_month = None
+        
+        if filter_year and filter_year != 'all':
+            filter_year = int(filter_year)
+        else:
+            filter_year = None
+        
+        # Save files temporarily
+        file_paths = []
+        for file in files:
+            filename = file.filename
+            
+            # Validate file extension
+            if not filename.lower().endswith(('.xlsx', '.xls')):
+                return jsonify({'error': f'Invalid file type for {filename}. Only Excel files (.xlsx, .xls) are supported'}), 400
+            
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(filepath)
+            file_paths.append(filepath)
+        
+        # Process batch
+        result = process_angsuran_batch(file_paths, filter_month=filter_month, filter_year=filter_year)
+        
+        # Save summary to CSV (temporary)
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        temp_filename = f"angsuran_summary_{timestamp}.csv"
+        temp_path = os.path.join(OUTPUT_FOLDER, temp_filename)
+        
+        # Write to CSV with metadata
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            # Add filter info as comment
+            f.write(f"# FILTER_MONTH:{filter_month if filter_month else 'all'}\n")
+            f.write(f"# FILTER_YEAR:{filter_year if filter_year else 'all'}\n")
+            result['summary'].to_csv(f, index=False)
+        
+        # Prepare response
+        summary_data = result['summary'].to_dict(orient='records')
+        
+        # Format numbers for display
+        for row in summary_data:
+            if 'Plafon' in row:
+                row['Plafon'] = f"{row['Plafon']:,.2f}"
+            if 'Outstanding' in row:
+                row['Outstanding'] = f"{row['Outstanding']:,.2f}"
+            if 'Porsi Pokok' in row:
+                row['Porsi Pokok'] = f"{row['Porsi Pokok']:,.2f}"
+            if 'Porsi Margin' in row:
+                row['Porsi Margin'] = f"{row['Porsi Margin']:,.2f}"
+            if 'Total' in row:
+                row['Total'] = f"{row['Total']:,.2f}"
+            if 'Periode' in row:
+                # Format date
+                try:
+                    periode_dt = pd.to_datetime(row['Periode'])
+                    row['Periode'] = periode_dt.strftime('%Y-%m-%d')
+                except:
+                    pass
+        
+        response_data = {
+            'mode': 'angsuran',
+            'data': summary_data,
+            'tempFile': temp_filename,
+            'summary': {
+                'totalContracts': result['stats']['total_contracts'],
+                'totalPlafon': f"{result['stats']['total_plafon']:,.2f}",
+                'totalOutstanding': f"{result['stats']['total_outstanding']:,.2f}",
+                'totalPorsiPokok': f"{result['stats']['total_porsi_pokok']:,.2f}",
+                'totalPorsiMargin': f"{result['stats']['total_porsi_margin']:,.2f}",
+                'totalAngsuran': f"{result['stats']['total_angsuran']:,.2f}"
+            },
+            'errors': result['errors'],
+            'filter': {
+                'month': filter_month,
+                'year': filter_year
+            }
+        }
+        
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        return jsonify({'error': f'Error processing files: {str(e)}'}), 500
+
+
+@app.route('/api/download-angsuran/<format>', methods=['POST'])
+def download_angsuran(format):
+    """
+    Download Angsuran data in Excel/CSV format
+    """
+    try:
+        data = request.json
+        temp_filename = data.get('tempFile')
+        
+        if not temp_filename:
+            return jsonify({'error': 'No temp file provided'}), 400
+        
+        temp_path = os.path.join(OUTPUT_FOLDER, temp_filename)
+        
+        if not os.path.exists(temp_path):
+            return jsonify({'error': 'Temp file not found'}), 404
+        
+        # Read filter info from temp file
+        filter_month = None
+        filter_year = None
+        
+        with open(temp_path, 'r', encoding='utf-8') as f:
+            first_line = f.readline()
+            if first_line.startswith('# FILTER_MONTH:'):
+                filter_month_str = first_line.replace('# FILTER_MONTH:', '').strip()
+                filter_month = None if filter_month_str == 'all' else int(filter_month_str)
+            
+            second_line = f.readline()
+            if second_line.startswith('# FILTER_YEAR:'):
+                filter_year_str = second_line.replace('# FILTER_YEAR:', '').strip()
+                filter_year = None if filter_year_str == 'all' else int(filter_year_str)
+        
+        # Read summary data (skip comment lines)
+        df = pd.read_csv(temp_path, comment='#')
+        
+        # Helper function to parse Indonesian number format
+        def parse_indonesian_number(val):
+            if pd.isna(val) or val == '' or val == '-':
+                return 0.0
+            val_str = str(val).strip()
+            val_str = val_str.replace(',', '')
+            try:
+                return float(val_str)
+            except:
+                return 0.0
+        
+        # Calculate stats
+        df_numeric = df.copy()
+        for col in ['Plafon', 'Outstanding', 'Porsi Pokok', 'Porsi Margin', 'Total']:
+            if col in df_numeric.columns:
+                df_numeric[f'{col}_numeric'] = df_numeric[col].apply(parse_indonesian_number)
+        
+        stats = {
+            'total_angsuran': df_numeric['Total_numeric'].sum() if 'Total_numeric' in df_numeric.columns else 0,
+            'total_porsi_pokok': df_numeric['Porsi Pokok_numeric'].sum() if 'Porsi Pokok_numeric' in df_numeric.columns else 0,
+            'total_porsi_margin': df_numeric['Porsi Margin_numeric'].sum() if 'Porsi Margin_numeric' in df_numeric.columns else 0
+        }
+        
+        # Generate filename - use "angsuran_kop" prefix
+        month_str = f"{filter_month:02d}" if filter_month else 'all'
+        year_str = str(filter_year) if filter_year else 'all'
+        output_filename = f"angsuran_kop_{month_str}_{year_str}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        if format == 'excel':
+            output_path = os.path.join(OUTPUT_FOLDER, f"{output_filename}.xlsx")
+            
+            # Export with formatting
+            sheet_name = f"Angsuran {month_str}-{year_str}"
+            export_to_excel_angsuran(df, stats, output_path, sheet_name=sheet_name)
+            
+            return send_file(output_path, as_attachment=True, download_name=f"{output_filename}.xlsx")
+        
+        elif format == 'csv':
+            output_path = os.path.join(OUTPUT_FOLDER, f"{output_filename}.csv")
+            df.to_csv(output_path, index=False)
+            
+            return send_file(output_path, as_attachment=True, download_name=f"{output_filename}.csv")
+        
+        else:
+            return jsonify({'error': f'Unsupported format: {format}'}), 400
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

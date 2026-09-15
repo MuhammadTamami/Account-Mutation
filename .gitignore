@@ -36,6 +36,14 @@ test_data/
 tests/
 docs/development/
 
+# Temporary test files in root
+*.test.xlsx
+*.test.csv
+*.test.pdf
+test_*.xlsx
+test_*.csv
+test_*.pdf
+
 # Test files (development scripts)
 backend/analyze_*.py
 backend/check_*.py
@@ -72,10 +80,12 @@ backend/MUTATION_*.md
 # Root documentation files (development/session notes)
 ACCURACY_TEST_RESULTS.md
 DAILY_BALANCE_*.md
+DUPLICATE_FIX_*.md
 EXECUTIVE_SUMMARY.md
 FINAL_*.md
-FRONTEND_BOT_*.md
+FRONTEND_*.md
 INSTALL_OCR.md
+LAYOUT_*.md
 OCR_IMPLEMENTATION.md
 ORGANIZATION_COMPLETE.md
 Presentasi.md
@@ -85,7 +95,15 @@ RELEASE_NOTES_*.md
 SUCCESS_REPORT.md
 SUMMARY_*.md
 TEST_*.md
+UPLOAD_MODAL_*.md
 VERIFICATION_CHECKLIST.md
+GITIGNORE_UPDATE.md
+
+# Keep important root documentation
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!QUICKSTART.md
 
 # Batch files
 *.bat
@@ -110,6 +128,14 @@ yarn-error.log*
 frontend/build/
 frontend/.pnp
 frontend/.pnp.js
+.cache/
+.parcel-cache/
+.next/
+out/
+
+# Package manager lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
 
 # Testing
 coverage/
@@ -121,6 +147,8 @@ build/
 # Misc
 .DS_Store
 .env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -132,9 +160,21 @@ build/
 *.swo
 *~
 
+# Sensitive files
+config.json
+secrets.json
+credentials.json
+*.key
+*.pem
+*.cert
+
 # Logs
 logs/
 *.log
+*_log.txt
+*_error.txt
+*_output.txt
+*_debug.txt
 
 # OS
 Thumbs.db
@@ -143,7 +183,26 @@ Desktop.ini
 # Backup files
 *.bak
 *.backup
+*.backup*
 *.old
 *_old.*
 *_backup.*
+*.corrupt_*
+*_before_*
+*.before_*
 whatsapp_pic/
+
+# Duplicate files in root (should be in subdirectories)
+/App.js
+/App.css
+/index.js
+/index.html
+
+# Frontend backup files
+frontend/src/*.bak
+frontend/src/*.backup
+frontend/src/*.backup*
+frontend/src/*.old
+frontend/src/*_before_*
+frontend/src/*.before_*
+frontend/src/*.corrupt_*
