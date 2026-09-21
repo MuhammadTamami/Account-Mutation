@@ -1,0 +1,66 @@
+---
+title: Feature Evolution - v1.0 vs v2.0 vs v2.2
+---
+%%{init: {'theme':'dark'}}%%
+graph LR
+    subgraph "Version 1.0"
+        V1_Banks["1 Bank<br/>(BSI only)"]
+        V1_Format["1 Format<br/>(CSV only)"]
+        V1_Mode["1 Mode<br/>(Basic convert)"]
+        V1_Upload["Single file"]
+        V1_UI["Basic UI"]
+        V1_Access["Web only"]
+    end
+    
+    subgraph "Version 2.0"
+        V2_Banks["7+ Banks<br/>(Multi-bank)"]
+        V2_Format["4 Formats<br/>(CSV,PDF,Excel,Image)"]
+        V2_Mode["2 Modes<br/>(Full + Daily)"]
+        V2_Upload["Batch<br/>(100 files)"]
+        V2_UI["3D Animated UI"]
+        V2_Access["Web only"]
+    end
+    
+    subgraph "Version 2.2"
+        V22_Banks["7+ Banks<br/>(+ Smart detect)"]
+        V22_Format["4 Formats<br/>(All optimized)"]
+        V22_Mode["4 Modes<br/>(+IDEB +Angsuran)"]
+        V22_Upload["Batch<br/>(100 files +filter)"]
+        V22_UI["3D Animated<br/>(+ Modal)"]
+        V22_Access["Web + Bot<br/>(Telegram)"]
+    end
+    
+    V1_Banks -->|+6 banks| V2_Banks
+    V1_Format -->|+3 formats| V2_Format
+    V1_Mode -->|+1 mode| V2_Mode
+    V1_Upload -->|+batch| V2_Upload
+    V1_UI -->|+3D anim| V2_UI
+    V1_Access -->|same| V2_Access
+    
+    V2_Banks -->|+smart| V22_Banks
+    V2_Format -->|optimize| V22_Format
+    V2_Mode -->|+2 modes| V22_Mode
+    V2_Upload -->|+filter| V22_Upload
+    V2_UI -->|+modal| V22_UI
+    V2_Access -->|+bot| V22_Access
+    
+    style V1_Banks fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff
+    style V1_Format fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff
+    style V1_Mode fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff
+    style V1_Upload fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff
+    style V1_UI fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff
+    style V1_Access fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff
+    
+    style V2_Banks fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style V2_Format fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style V2_Mode fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style V2_Upload fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style V2_UI fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style V2_Access fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    
+    style V22_Banks fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V22_Format fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V22_Mode fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V22_Upload fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V22_UI fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V22_Access fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000

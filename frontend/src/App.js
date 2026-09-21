@@ -14,6 +14,9 @@ function App() {
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   
+  // Notification popup state
+  const [notification, setNotification] = useState({ show: false, type: '', title: '', message: '', details: '' });
+  
   // Angsuran filters
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
@@ -40,6 +43,17 @@ function App() {
     // Uncomment for detailed debug info:
     // debugBrowserInfo();
   }, []);
+
+  // Notification helper function
+  const showNotification = (type, title, message, details = '') => {
+    setNotification({ show: true, type, title, message, details });
+  };
+
+  const closeNotification = () => {
+    setNotification({ show: false, type: '', title: '', message: '', details: '' });
+  };
+
+
 
   const handleOpenUpload = (mode) => {
     setUploadMode(mode);
@@ -157,7 +171,17 @@ function App() {
         setShowUploadModal(false);
         
       } catch (err) {
-        setError(err.response?.data?.error || 'Terjadi kesalahan saat memproses file');
+        const errorData = err.response?.data;
+        const errorMessage = errorData?.error || 'Terjadi kesalahan saat memproses file';
+        const errorDetails = errorData?.details || err.message || '';
+        
+        // Check for empty file error
+        if (errorMessage.toLowerCase().includes('kosong') || errorMessage.toLowerCase().includes('empty') || errorData?.empty) {
+          showNotification('warning', 'File Kosong', 'File yang diupload tidak memiliki data transaksi', errorDetails);
+        } else {
+          showNotification('error', 'Error Processing File', errorMessage, errorDetails);
+        }
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -206,7 +230,17 @@ function App() {
       setShowUploadModal(false);
       
     } catch (err) {
-      setError(err.response?.data?.error || 'Terjadi kesalahan saat memproses file');
+      const errorData = err.response?.data;
+      const errorMessage = errorData?.error || 'Terjadi kesalahan saat memproses file';
+      const errorDetails = errorData?.details || err.message || '';
+      
+      // Check for empty file error
+      if (errorMessage.toLowerCase().includes('kosong') || errorMessage.toLowerCase().includes('empty') || errorMessage.toLowerCase().includes('no data') || errorData?.empty) {
+        showNotification('warning', 'File Kosong', 'File yang diupload tidak memiliki data transaksi', errorDetails);
+      } else {
+        showNotification('error', 'Error Processing File', errorMessage, errorDetails);
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -379,27 +413,56 @@ function App() {
   if (currentPage === 'home') {
     return (
       <div className="App">
+        {/* Notification Popup */}
+        {notification.show && (
+          <div className="notification-overlay" onClick={closeNotification}>
+            <div className={`notification-modal ${notification.type}`} onClick={(e) => e.stopPropagation()}>
+              <div className="notification-header">
+                <div className={`notification-icon ${notification.type}`}>
+                  {notification.type === 'error' && '❌'}
+                  {notification.type === 'warning' && '⚠️'}
+                  {notification.type === 'success' && '✅'}
+                  {notification.type === 'info' && 'ℹ️'}
+                </div>
+                <h2 className="notification-title">{notification.title}</h2>
+              </div>
+              <p className="notification-message">{notification.message}</p>
+              {notification.details && (
+                <div className="notification-details">
+                  <strong>Details:</strong><br />
+                  {notification.details}
+                </div>
+              )}
+              <div className="notification-actions">
+                <button className="btn-notification btn-notification-close" onClick={closeNotification}>
+                  OK, Mengerti
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Animated 3D Background */}
         <div className="animated-background">
           {/* Grid Lines */}
           <div className="grid-lines"></div>
           
           {/* Floating Documents */}
-          <div className="floating-doc">📄</div>
-          <div className="floating-doc">📊</div>
-          <div className="floating-doc">📈</div>
-          <div className="floating-doc">📋</div>
-          <div className="floating-doc">📑</div>
-          <div className="floating-doc">📉</div>
-          <div className="floating-doc">📃</div>
-          <div className="floating-doc">🗂️</div>
+          <div className="floating-doc doc-1" style={{left: "10%"}}>📄</div>
+          <div className="floating-doc doc-2" style={{left: "30%"}}>📄</div>
+          <div className="floating-doc doc-3" style={{left: "50%"}}>📄</div>
+          <div className="floating-doc doc-4" style={{left: "70%"}}>📄</div>
+          <div className="floating-doc doc-5" style={{left: "20%"}}>📄</div>
+          <div className="floating-doc doc-6" style={{left: "60%"}}>📄</div>
+          <div className="floating-doc doc-7" style={{left: "80%"}}>📄</div>
+          <div className="floating-doc doc-8" style={{left: "40%"}}>📄</div>
           
           {/* Glowing Particles */}
-          <div className="particle"></div>
-          <div className="particle"></div>
-          <div className="particle"></div>
-          <div className="particle"></div>
-          <div className="particle"></div>
+          <div className="particle" style={{top: "20%", left: "15%"}}></div>
+          <div className="particle" style={{top: "50%", left: "85%"}}></div>
+          <div className="particle" style={{top: "70%", left: "25%"}}></div>
+          <div className="particle" style={{top: "30%", left: "70%"}}></div>
+          <div className="particle" style={{top: "80%", left: "50%"}}></div>
         </div>
 
         {/* Navbar */}
@@ -838,11 +901,11 @@ function App() {
         <div className="grid-lines"></div>
         
         {/* Floating Documents */}
-        <div className="floating-doc">📄</div>
-        <div className="floating-doc">📊</div>
-        <div className="floating-doc">📈</div>
-        <div className="floating-doc">📋</div>
-        <div className="floating-doc">📑</div>
+        <div className="floating-doc doc-1" style={{left: "10%"}}>📄</div>
+        <div className="floating-doc doc-2" style={{left: "30%"}}>📄</div>
+        <div className="floating-doc doc-3" style={{left: "50%"}}>📄</div>
+        <div className="floating-doc doc-4" style={{left: "70%"}}>📄</div>
+        <div className="floating-doc doc-5" style={{left: "20%"}}>📄</div>
         
         {/* Glowing Particles */}
         <div className="particle"></div>
@@ -1146,3 +1209,16 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+

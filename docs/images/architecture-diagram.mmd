@@ -1,0 +1,86 @@
+---
+title: MUTREK System Architecture
+---
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#b4ff00'}}}%%
+graph TB
+    subgraph "🌐 ACCESS LAYER"
+        WebApp["<b>Web Application</b><br/>React + Modern UI<br/>localhost:3000"]
+        TelegramBot["<b>Telegram Bot</b><br/>@murenabank_bot<br/>✅ LIVE"]
+    end
+    
+    subgraph "🔄 BACKEND API"
+        Flask["<b>Flask Server</b><br/>Python 3.8+<br/>localhost:5000"]
+    end
+    
+    subgraph "⚙️ PROCESSING LAYER"
+        Upload["<b>File Upload</b><br/>Max 20MB/file<br/>Max 100 files"]
+        AutoDetect["<b>Auto Detection</b><br/>Smart bank detection<br/>Format analysis"]
+        
+        subgraph "Bank Processors"
+            P_BSI["BSI Processor"]
+            P_Mandiri["Mandiri Processor"]
+            P_BRI["BRI Processor"]
+            P_BNI["BNI Processor"]
+            P_BCA["BCA Processor"]
+            P_Kalsel["Bank Kalsel Processor"]
+            P_Angsuran["Angsuran Processor"]
+            P_Image["Image OCR Processor"]
+        end
+    end
+    
+    subgraph "💾 STORAGE"
+        Uploads["uploads/<br/>Temporary files"]
+        Outputs["outputs/<br/>Generated Excel/CSV"]
+        BotTemp["bot_temp/<br/>Bot processing"]
+    end
+    
+    subgraph "📊 OUTPUT MODES"
+        FullScan["<b>Full Scan</b><br/>Complete analysis<br/>Monthly breakdown"]
+        DailyBalance["<b>Daily Balance</b><br/>End-of-day balance<br/>Tracking mode"]
+        IDEB["<b>IDEB SLIK</b><br/>Credit analysis<br/>Baki Debet > 0"]
+        Angsuran["<b>Angsuran KOP</b><br/>Batch processing<br/>Proyeksi output"]
+    end
+    
+    WebApp --> Flask
+    TelegramBot --> Flask
+    Flask --> Upload
+    Upload --> AutoDetect
+    
+    AutoDetect --> P_BSI
+    AutoDetect --> P_Mandiri
+    AutoDetect --> P_BRI
+    AutoDetect --> P_BNI
+    AutoDetect --> P_BCA
+    AutoDetect --> P_Kalsel
+    AutoDetect --> P_Angsuran
+    AutoDetect --> P_Image
+    
+    P_BSI --> Uploads
+    P_Mandiri --> Uploads
+    P_BRI --> Uploads
+    P_BNI --> Uploads
+    P_BCA --> Uploads
+    P_Kalsel --> Uploads
+    P_Angsuran --> Uploads
+    P_Image --> Uploads
+    
+    Uploads --> FullScan
+    Uploads --> DailyBalance
+    Uploads --> IDEB
+    Uploads --> Angsuran
+    
+    FullScan --> Outputs
+    DailyBalance --> Outputs
+    IDEB --> Outputs
+    Angsuran --> Outputs
+    
+    TelegramBot --> BotTemp
+    
+    style WebApp fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style TelegramBot fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style Flask fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style AutoDetect fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style FullScan fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    style DailyBalance fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    style IDEB fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    style Angsuran fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff

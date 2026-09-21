@@ -1,0 +1,67 @@
+---
+title: MUTREK Statistics Dashboard
+---
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#b4ff00'}}}%%
+graph TB
+    subgraph "📊 PROCESSING STATISTICS"
+        Banks["<b>Banks Supported</b><br/>7+<br/>🔄 Growing"]
+        Formats["<b>File Formats</b><br/>4<br/>CSV, PDF, Excel, Image"]
+        Modes["<b>Processing Modes</b><br/>4<br/>Full, Daily, IDEB, Angsuran"]
+        BatchSize["<b>Batch Capacity</b><br/>100 files<br/>Max 20MB each"]
+    end
+    
+    subgraph "🎯 ACCURACY METRICS"
+        CSV_Acc["<b>CSV</b><br/>100%<br/>✅ Perfect"]
+        PDF_Acc["<b>PDF</b><br/>95-100%<br/>✅ Excellent"]
+        Excel_Acc["<b>Excel</b><br/>100%<br/>✅ Perfect"]
+        Image_Acc["<b>Image OCR</b><br/>70-90%<br/>⚠️ Good"]
+        
+        Balance_Det["<b>Balance-Based</b><br/>100%<br/>✅ v2.1.0+"]
+        Keyword_Det["<b>Keyword-Based</b><br/>95-98%<br/>⚠️ v2.0.0"]
+    end
+    
+    subgraph "⚡ PERFORMANCE"
+        Speed_CSV["<b>CSV Processing</b><br/>&lt;1 second<br/>⚡ Instant"]
+        Speed_PDF["<b>PDF Processing</b><br/>2-5 seconds<br/>⚡ Fast"]
+        Speed_Image["<b>Image OCR</b><br/>10-30 seconds<br/>🐌 Slow"]
+        Speed_Batch["<b>Batch (100 files)</b><br/>3-10 minutes<br/>⚡ Parallel"]
+    end
+    
+    subgraph "🤖 ACCESS METHODS"
+        Web["<b>Web App</b><br/>✅ Available<br/>localhost:3000"]
+        Bot["<b>Telegram Bot</b><br/>✅ LIVE<br/>@murenabank_bot"]
+        API["<b>REST API</b><br/>✅ Available<br/>localhost:5000"]
+    end
+    
+    subgraph "📈 GROWTH TIMELINE"
+        V1["<b>v1.0</b><br/>1 bank<br/>1 format<br/>1 mode"]
+        V2["<b>v2.0</b><br/>7 banks<br/>4 formats<br/>2 modes"]
+        V21["<b>v2.1</b><br/>100% accurate<br/>Balance-based"]
+        V22["<b>v2.2</b><br/>4 modes<br/>Bot live<br/>Angsuran"]
+    end
+    
+    V1 -->|700% growth| V2
+    V2 -->|Quality↑| V21
+    V21 -->|Features↑| V22
+    
+    style CSV_Acc fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style Excel_Acc fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style Balance_Det fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    
+    style PDF_Acc fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style Keyword_Det fill:#ffcc00,stroke:#cc9900,stroke-width:2px,color:#000
+    style Image_Acc fill:#ff8800,stroke:#cc6600,stroke-width:2px,color:#fff
+    
+    style Speed_CSV fill:#00ff64,stroke:#00cc50,stroke-width:2px,color:#000
+    style Speed_PDF fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style Speed_Batch fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style Speed_Image fill:#ff8800,stroke:#cc6600,stroke-width:2px,color:#fff
+    
+    style Web fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    style Bot fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style API fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    
+    style V22 fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V21 fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style V2 fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style V1 fill:#ff6b6b,stroke:#cc5555,stroke-width:2px,color:#fff

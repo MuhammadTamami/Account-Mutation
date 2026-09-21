@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+﻿from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
 from processors.bank_detector import detect_bank
@@ -1665,3 +1665,5 @@ def download_angsuran(format):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+
+

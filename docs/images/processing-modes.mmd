@@ -1,0 +1,41 @@
+---
+title: 4 Processing Modes Explained
+---
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#b4ff00'}}}%%
+graph TD
+    Start[Upload Bank Statement] --> DetectMode{Select Processing Mode}
+    
+    DetectMode -->|Mode 1| FullScan["📊 FULL SCAN MUTREK"]
+    DetectMode -->|Mode 2| DailyBalance["📅 CEK SALDO TERAKHIR"]
+    DetectMode -->|Mode 3| IDEB["📋 IDEB SLIK ANALYZER"]
+    DetectMode -->|Mode 4| Angsuran["💰 ANGSURAN / PROYEKSI KOP"]
+    
+    FullScan --> FS_Process["• Parse all transactions<br/>• Calculate debit/credit<br/>• Monthly breakdown<br/>• Mutation statistics"]
+    FS_Process --> FS_Output["<b>Output:</b><br/>full_scan_*.xlsx<br/>• Complete transaction list<br/>• Monthly summary<br/>• Total Debit/Credit<br/>• Frequency stats"]
+    
+    DailyBalance --> DB_Process["• Extract daily closing<br/>• Group by date<br/>• Last balance per day<br/>• Timeline tracking"]
+    DB_Process --> DB_Output["<b>Output:</b><br/>daily_balance_*.xlsx<br/>• Date | Balance<br/>• Easy copy to Excel<br/>• Filter per month<br/>• Quick tracking"]
+    
+    IDEB --> IDEB_Process["• Parse IDEB SLIK PDF<br/>• Filter Baki Debet > 0<br/>• Extract credit data<br/>• Loan analysis"]
+    IDEB_Process --> IDEB_Output["<b>Output:</b><br/>ideb_slik_*.xlsx<br/>• Active loans only<br/>• Outstanding balance<br/>• Credit details<br/>• Risk assessment"]
+    
+    Angsuran --> ANG_Process["• Batch Excel upload<br/>• Filter bulan/tahun<br/>• Calculate outstanding<br/>• Porsi pokok & margin"]
+    ANG_Process --> ANG_Output["<b>Output:</b><br/>angsuran_kop_*.xlsx<br/>• Proyeksi per member<br/>• Outstanding calc<br/>• Pokok & margin split<br/>• KOP format ready"]
+    
+    FS_Output --> End[Download or Copy]
+    DB_Output --> End
+    IDEB_Output --> End
+    ANG_Output --> End
+    
+    style FullScan fill:#667eea,stroke:#5568d3,stroke-width:3px,color:#fff
+    style DailyBalance fill:#4ecdc4,stroke:#3ba39c,stroke-width:3px,color:#000
+    style IDEB fill:#f7b731,stroke:#c89229,stroke-width:3px,color:#000
+    style Angsuran fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    
+    style FS_Output fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    style DB_Output fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style IDEB_Output fill:#f7b731,stroke:#c89229,stroke-width:2px,color:#000
+    style ANG_Output fill:#00ff64,stroke:#00cc50,stroke-width:2px,color:#000
+    
+    style Start fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style End fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000

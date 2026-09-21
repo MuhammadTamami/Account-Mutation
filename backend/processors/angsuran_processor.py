@@ -310,16 +310,17 @@ def calculate_statistics(summary_df):
 
 def export_to_excel_angsuran(summary_df, stats, output_path, sheet_name='Proyeksi'):
     """
-    Export summary to Excel with formatting EXACTLY like template screenshot
+    Export summary to Excel with professional formatting
     
-    Template format:
-    - Row 3: Headers with gray background
-    - Row 4+: Data with "Rp" prefix and number formatting
-    - Last row: Total with bold text
-    - All cells have borders
+    Features:
+    - Custom currency format: _(Rp* #,##0.00_);_(Rp* (#,##0.00);_(Rp* "-"??_);_(@_)
+    - Fasilitas Pembiayaan: Left align
+    - Numeric columns (Plafon, Outstanding, Porsi Pokok, Porsi Margin, Total): Right align
+    - Total column: Uses formula (=F+G) not static value
     """
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles.numbers import FORMAT_NUMBER_00
     
     wb = Workbook()
     ws = wb.active
@@ -345,6 +346,9 @@ def export_to_excel_angsuran(summary_df, stats, output_path, sheet_name='Proyeks
     # Data font
     data_font = Font(size=11, name='Calibri')
     
+    # Custom currency format (Rp without text prefix, using Excel number format)
+    currency_format = '_(Rp* #,##0.00_);_(Rp* (#,##0.00);_(Rp* "-"??_);_(@_)'
+    
     # Write headers (row 3)
     headers = ['No', 'Fasilitas Pembiayaan', 'Plafon', 'Outstanding', 'Periode', 
                'Porsi Pokok', 'Porsi Margin', 'Total']
@@ -367,30 +371,29 @@ def export_to_excel_angsuran(summary_df, stats, output_path, sheet_name='Proyeks
         cell.font = data_font
         cell.border = thin_border
         
-        # Column B: Fasilitas Pembiayaan
+        # Column B: Fasilitas Pembiayaan (LEFT ALIGN)
         cell = ws.cell(row=row_num, column=2, value=str(row_data['Fasilitas Pembiayaan']))
-        cell.alignment = left_align
+        cell.alignment = left_align  # LEFT ALIGN
         cell.font = data_font
         cell.border = thin_border
         
-        # Column C: Plafon (with "Rp" prefix)
-        cell = ws.cell(row=row_num, column=3)
-        cell.value = f"Rp       {row_data['Plafon']:,.2f}"
-        cell.alignment = right_align
+        # Column C: Plafon (RIGHT ALIGN with custom currency format)
+        cell = ws.cell(row=row_num, column=3, value=float(row_data['Plafon']))
+        cell.number_format = currency_format
+        cell.alignment = right_align  # RIGHT ALIGN
         cell.font = data_font
         cell.border = thin_border
         
-        # Column D: Outstanding (with "Rp" prefix)
-        cell = ws.cell(row=row_num, column=4)
-        cell.value = f"Rp       {row_data['Outstanding']:,.2f}"
-        cell.alignment = right_align
+        # Column D: Outstanding (RIGHT ALIGN with custom currency format)
+        cell = ws.cell(row=row_num, column=4, value=float(row_data['Outstanding']))
+        cell.number_format = currency_format
+        cell.alignment = right_align  # RIGHT ALIGN
         cell.font = data_font
         cell.border = thin_border
         
         # Column E: Periode (format: Oct-26)
         periode_val = row_data['Periode']
         if pd.notna(periode_val):
-            # Format as "Oct-26"
             periode_dt = pd.to_datetime(periode_val)
             periode_str = periode_dt.strftime('%b-%y')
         else:
@@ -401,28 +404,30 @@ def export_to_excel_angsuran(summary_df, stats, output_path, sheet_name='Proyeks
         cell.font = data_font
         cell.border = thin_border
         
-        # Column F: Porsi Pokok (with "Rp" prefix)
-        cell = ws.cell(row=row_num, column=6)
-        cell.value = f"Rp       {row_data['Porsi Pokok']:,.2f}"
-        cell.alignment = right_align
+        # Column F: Porsi Pokok (RIGHT ALIGN with custom currency format)
+        cell = ws.cell(row=row_num, column=6, value=float(row_data['Porsi Pokok']))
+        cell.number_format = currency_format
+        cell.alignment = right_align  # RIGHT ALIGN
         cell.font = data_font
         cell.border = thin_border
         
-        # Column G: Porsi Margin (with "Rp" prefix)
+        # Column G: Porsi Margin (RIGHT ALIGN with custom currency format)
         porsi_margin = row_data['Porsi Margin']
         cell = ws.cell(row=row_num, column=7)
         if porsi_margin == 0 or pd.isna(porsi_margin):
-            cell.value = "Rp                          -"
+            cell.value = 0
         else:
-            cell.value = f"Rp       {porsi_margin:,.2f}"
-        cell.alignment = right_align
+            cell.value = float(porsi_margin)
+        cell.number_format = currency_format
+        cell.alignment = right_align  # RIGHT ALIGN
         cell.font = data_font
         cell.border = thin_border
         
-        # Column H: Total (with "Rp" prefix)
+        # Column H: Total (FORMULA: =F+G, not static value)
         cell = ws.cell(row=row_num, column=8)
-        cell.value = f"Rp       {row_data['Total']:,.2f}"
-        cell.alignment = right_align
+        cell.value = f'=F{row_num}+G{row_num}'  # FORMULA instead of static value
+        cell.number_format = currency_format
+        cell.alignment = right_align  # RIGHT ALIGN
         cell.font = data_font
         cell.border = thin_border
     
@@ -436,21 +441,22 @@ def export_to_excel_angsuran(summary_df, stats, output_path, sheet_name='Proyeks
     cell_total_label.font = Font(bold=True, size=12, name='Calibri')
     cell_total_label.border = thin_border
     
-    # Total value in column H
+    # Total value in column H (SUM formula)
     cell_total_value = ws.cell(row=total_row, column=8)
-    cell_total_value.value = f"Rp  {stats['total_angsuran']:,.2f}"
+    cell_total_value.value = f'=SUM(H{start_row}:H{start_row + len(summary_df) - 1})'
+    cell_total_value.number_format = currency_format
     cell_total_value.alignment = right_align
     cell_total_value.font = Font(bold=True, size=12, name='Calibri')
     cell_total_value.border = thin_border
     
-    # Set column widths (matching template)
+    # Set column widths
     ws.column_dimensions['A'].width = 5    # No
-    ws.column_dimensions['B'].width = 20   # Fasilitas Pembiayaan
+    ws.column_dimensions['B'].width = 25   # Fasilitas Pembiayaan (wider for left-aligned text)
     ws.column_dimensions['C'].width = 22   # Plafon
     ws.column_dimensions['D'].width = 22   # Outstanding
     ws.column_dimensions['E'].width = 12   # Periode
-    ws.column_dimensions['F'].width = 18   # Porsi Pokok
-    ws.column_dimensions['G'].width = 18   # Porsi Margin
+    ws.column_dimensions['F'].width = 20   # Porsi Pokok
+    ws.column_dimensions['G'].width = 20   # Porsi Margin
     ws.column_dimensions['H'].width = 22   # Total
     
     # Save workbook

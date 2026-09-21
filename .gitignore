@@ -7,6 +7,8 @@ __pycache__/
 env/
 venv/
 ENV/
+env.bak/
+venv.bak/
 build/
 develop-eggs/
 dist/
@@ -22,19 +24,32 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Backend folders
+# Backend folders (user data and outputs)
 backend/uploads/*
 backend/outputs/*
 backend/bot_temp/*
+backend/whatsapp_pic/*
 !backend/uploads/.gitkeep
 !backend/outputs/.gitkeep
 !backend/bot_temp/.gitkeep
+!backend/whatsapp_pic/.gitkeep
 
-# Test data and development files
-test_data/
+# Keep test data structure but ignore contents
+test_data/**/*
+!test_data/.gitkeep
+!test_data/**/.gitkeep
+
+# Tests
 tests/
 docs/development/
+*.test.py
+test_*.py
 
 # Temporary test files in root
 *.test.xlsx
@@ -79,11 +94,14 @@ backend/MUTATION_*.md
 
 # Root documentation files (development/session notes)
 ACCURACY_TEST_RESULTS.md
+ANIMATION_FIX_*.md
+CHECK_*.md
 DAILY_BALANCE_*.md
 DUPLICATE_FIX_*.md
 EXECUTIVE_SUMMARY.md
 FINAL_*.md
 FRONTEND_*.md
+GENERATE_*.md
 INSTALL_OCR.md
 LAYOUT_*.md
 OCR_IMPLEMENTATION.md
@@ -98,6 +116,8 @@ TEST_*.md
 UPLOAD_MODAL_*.md
 VERIFICATION_CHECKLIST.md
 GITIGNORE_UPDATE.md
+VISUAL_*.md
+
 
 # Keep important root documentation
 !README.md
@@ -120,22 +140,38 @@ GITIGNORE_UPDATE.md
 !.gitkeep
 !.gitattributes
 
+# Allow documentation images
+!docs/**/*.png
+!docs/**/*.svg
+!docs/**/*.jpg
+!docs/**/*.jpeg
+!docs/**/*.mmd
+!docs/**/*.md
+
 # Node
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Frontend build and cache
 frontend/build/
 frontend/.pnp
 frontend/.pnp.js
+frontend/.cache/
 .cache/
 .parcel-cache/
 .next/
 out/
+dist/
 
-# Package manager lock files (optional - uncomment if needed)
+# Package manager lock files (keep these for reproducible builds)
+# Uncomment below if you don't want to track lock files
 # package-lock.json
 # yarn.lock
+# pnpm-lock.yaml
 
 # Testing
 coverage/
@@ -144,8 +180,20 @@ coverage/
 # Production
 build/
 
-# Misc
-.DS_Store
+# IDEs and Editors
+.vscode/
+.idea/
+.kiro/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Environment and Config
 .env
 .env.*
 !.env.example
@@ -153,20 +201,31 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
-.vscode/
-.idea/
-.kiro/
-*.swp
-*.swo
-*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
 # Sensitive files
 config.json
 secrets.json
 credentials.json
+telegram_config.json
+bot_config.json
 *.key
 *.pem
 *.cert
+*.crt
+*.p12
+*.pfx
+*_private*
+*_secret*
 
 # Logs
 logs/
@@ -175,12 +234,10 @@ logs/
 *_error.txt
 *_output.txt
 *_debug.txt
+pip-log.txt
+pip-delete-this-directory.txt
 
-# OS
-Thumbs.db
-Desktop.ini
-
-# Backup files
+# Backup and temporary files
 *.bak
 *.backup
 *.backup*
@@ -190,7 +247,9 @@ Desktop.ini
 *.corrupt_*
 *_before_*
 *.before_*
-whatsapp_pic/
+*.tmp
+*.temp
+~$*
 
 # Duplicate files in root (should be in subdirectories)
 /App.js
@@ -206,3 +265,76 @@ frontend/src/*.old
 frontend/src/*_before_*
 frontend/src/*.before_*
 frontend/src/*.corrupt_*
+
+# Frontend test and debug files
+frontend/public/test-*.html
+frontend/public/*-test.html
+frontend/public/diagnostic-*.html
+frontend/public/simple-*.html
+frontend/public/*-debug.html
+frontend/public/css-shapes-*.html
+frontend/public/full-structure-*.html
+
+# Desktop test files
+C:/Users/*/Desktop/empty_test.csv
+C:/Users/*/Desktop/*-test.*
+C:/Users/*/Desktop/MURENA-*.zip
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+*.xlk
+
+# CSV temporary files  
+*.csv~
+*.csv.bak
+
+# PDF temporary files
+*.pdf~
+*.pdf.bak
+
+# Any file with "TEMP" in name
+*TEMP*
+*temp*
+
+# Compiled Python files in processors
+backend/processors/__pycache__/
+backend/processors/*.pyc
+
+# Documentation that shouldn't be tracked
+*.draft.md
+*_DRAFT.md
+*_TODO.md
+*_NOTES.md
+SESSION_*.md
+DEVELOPMENT_*.md
+
+# Large media files (if any)
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Archives (except release archives)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+!releases/*.zip
+!releases/*.tar.gz
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Excel lock files
+.~lock.*
+
+# Documentation prompts (development references)
+docs/PROMPT*.md
+docs/*_PROMPT.md

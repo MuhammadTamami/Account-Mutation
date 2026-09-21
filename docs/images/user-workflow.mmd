@@ -1,0 +1,61 @@
+---
+title: User Workflow - Web vs Bot
+---
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#b4ff00'}}}%%
+graph TD
+    Start["👤 User wants to<br/>process bank statement"]
+    
+    Start --> Choice{Choose Access Method}
+    
+    Choice -->|Desktop/Laptop| WebFlow["🌐 WEB APPLICATION"]
+    Choice -->|Mobile/Anywhere| BotFlow["🤖 TELEGRAM BOT"]
+    
+    subgraph "Web Application Flow"
+        WebFlow --> W1["1. Open browser<br/>localhost:3000"]
+        W1 --> W2["2. Select mode<br/>(Full/Daily/IDEB/Angsuran)"]
+        W2 --> W3["3. Click Upload File button"]
+        W3 --> W4["4. Drag & drop or<br/>select files (max 100)"]
+        W4 --> W5["5. Optional: Set filter<br/>(bulan/tahun for Angsuran)"]
+        W5 --> W6["6. Click Process"]
+        W6 --> W7["7. Wait for processing<br/>(2-30 seconds)"]
+        W7 --> W8["8. View results on web"]
+        W8 --> W9{"Output Choice"}
+        W9 -->|Quick| W10["Copy to clipboard<br/>(Paste to Excel)"]
+        W9 -->|Archive| W11["Download Excel/CSV<br/>(Smart naming)"]
+        W10 --> WebEnd["✅ Done!"]
+        W11 --> WebEnd
+    end
+    
+    subgraph "Telegram Bot Flow"
+        BotFlow --> B1["1. Open Telegram<br/>Search @murenabank_bot"]
+        B1 --> B2["2. Send /start command"]
+        B2 --> B3["3. Upload file directly<br/>(PDF/CSV/Excel/Image)"]
+        B3 --> B4["4. Bot auto-detects<br/>bank & format"]
+        B4 --> B5["5. Select processing mode<br/>(inline buttons)"]
+        B5 --> B6["6. Bot processes<br/>automatically"]
+        B6 --> B7["7. Receive result file<br/>(Excel/CSV)"]
+        B7 --> B8["8. Download from Telegram"]
+        B8 --> BotEnd["✅ Done!"]
+    end
+    
+    WebEnd --> Stats["📊 Processing Stats<br/>• Speed: Fast<br/>• Accuracy: 95-100%<br/>• Access: Desktop<br/>• Control: High"]
+    BotEnd --> BotStats["📊 Processing Stats<br/>• Speed: Fast<br/>• Accuracy: 95-100%<br/>• Access: Mobile<br/>• Control: Auto"]
+    
+    style Start fill:#b4ff00,stroke:#90cc00,stroke-width:3px,color:#000
+    style Choice fill:#667eea,stroke:#5568d3,stroke-width:3px,color:#fff
+    
+    style WebFlow fill:#4ecdc4,stroke:#3ba39c,stroke-width:3px,color:#000
+    style BotFlow fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    
+    style W2 fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    style W5 fill:#f7b731,stroke:#c89229,stroke-width:2px,color:#000
+    style W9 fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    
+    style B4 fill:#00ff64,stroke:#00cc50,stroke-width:2px,color:#000
+    style B5 fill:#667eea,stroke:#5568d3,stroke-width:2px,color:#fff
+    
+    style WebEnd fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style BotEnd fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    
+    style Stats fill:#4ecdc4,stroke:#3ba39c,stroke-width:2px,color:#000
+    style BotStats fill:#00ff64,stroke:#00cc50,stroke-width:2px,color:#000

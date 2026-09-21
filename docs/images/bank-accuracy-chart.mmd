@@ -1,0 +1,40 @@
+---
+title: Bank Processing Accuracy Comparison
+---
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#b4ff00'}}}%%
+graph TB
+    subgraph "🏦 BANK ACCURACY RATES"
+        BSI["<b>BSI</b><br/>CSV Format<br/>✅ 100%"]
+        Mandiri["<b>Mandiri</b><br/>PDF Format<br/>✅ 99-100%"]
+        BRI["<b>BRI</b><br/>PDF e-Statement<br/>✅ 98-100%"]
+        BNI["<b>BNI</b><br/>PDF Transaction<br/>✅ 97-99%"]
+        BCA["<b>BCA</b><br/>PDF Tahapan<br/>✅ 98-100%"]
+        Kalsel["<b>Bank Kalsel</b><br/>PDF Mutasi<br/>✅ 99-100%"]
+        Byond["<b>Byond</b><br/>PDF Mutasi<br/>✅ 97-99%"]
+    end
+    
+    subgraph "📁 FORMAT ACCURACY"
+        CSV["<b>CSV</b><br/>100%<br/>⚡ Fastest"]
+        PDF["<b>PDF</b><br/>95-100%<br/>⚡ Fast"]
+        Excel["<b>Excel</b><br/>100%<br/>⚡ Fast"]
+        Image["<b>Image OCR</b><br/>70-90%<br/>🐌 Slow"]
+    end
+    
+    subgraph "🎯 DETECTION METHOD"
+        V21["<b>v2.1.0+</b><br/>Balance-Based<br/>✅ 100% Accurate"]
+        V20["<b>v2.0.0</b><br/>Keyword-Based<br/>⚠️ 95-98%"]
+    end
+    
+    style BSI fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style CSV fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style V21 fill:#00ff64,stroke:#00cc50,stroke-width:3px,color:#000
+    style Mandiri fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style BRI fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style BCA fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style Kalsel fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style PDF fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style Excel fill:#b4ff00,stroke:#90cc00,stroke-width:2px,color:#000
+    style BNI fill:#ffcc00,stroke:#cc9900,stroke-width:2px,color:#000
+    style Byond fill:#ffcc00,stroke:#cc9900,stroke-width:2px,color:#000
+    style V20 fill:#ffcc00,stroke:#cc9900,stroke-width:2px,color:#000
+    style Image fill:#ff6600,stroke:#cc5200,stroke-width:2px,color:#fff
